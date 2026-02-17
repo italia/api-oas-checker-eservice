@@ -1,0 +1,91 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: oas-checker-postgres-host
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: oaschecker
+      POSTGRES_USER: oaschecker
+      POSTGRES_PASSWORD: oaschecker_dev_password
+      PGPORT: ${POSTGRES_PORT_HOST:-15432}
+    volumes:
+      - postgres-data-host:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -p ${POSTGRES_PORT_HOST:-15432} -U oaschecker"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # e-service - FastAPI
+  eservice:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: oas-checker-eservice-host
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      ESERVICE_HOST: 0.0.0.0
+      ESERVICE_PORT: ${ESERVICE_PORT_HOST:-8000}
+      DATABASE_URL: postgresql://oaschecker:oaschecker_dev_password@localhost:${POSTGRES_PORT_HOST:-15432}/oaschecker
+      FUNCTION_TYPE: azure-local
+      FUNCTION_URL: http://localhost:${FUNCTION_PORT_HOST:-7071}/api/validate
+      CALLBACK_BASE_URL: http://localhost:${ESERVICE_PORT_HOST:-8000}
+      RULESET_REPO: italia/api-oas-checker-rules
+      RULESET_VERSION: latest
+      RULESET_PATH: /app/data/rulesets
+      RULESET_AUTO_UPDATE: "true"
+      JWT_ENABLED: "true"
+      HMAC_ENABLED: "true"
+      CALLBACK_SECRET: "dev-secret-change-in-production"
+    volumes:
+      - eservice-data-host:/app/data
+      - ruleset-cache-host:/app/data/rulesets
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Azure Function - ProcessValidation
+  azure-function:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: azure_function/Dockerfile
+    container_name: oas-checker-function-host
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      AzureWebJobsScriptRoot: /home/site/wwwroot
+      FUNCTIONS_WORKER_RUNTIME: python
+      CALLBACK_SECRET: "dev-secret-change-in-production"
+      RULESET_FUNCTIONS_PATH: /home/site/wwwroot/data/rulesets/functions
+      # Cambia la porta di ascolto del runtime Azure Functions/ASP.NET Core
+      ASPNETCORE_URLS: "http://+:${FUNCTION_PORT_HOST:-7071}"
+    volumes:
+      - function-data-host:/home/site/wwwroot/data
+      - ruleset-cache-host:/home/site/wwwroot/data/rulesets
+
+  # Govway
+  govway:
+    image: linkitaly/govway:latest
+    container_name: govway-host
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      - GOVWAY_DEFAULT_ENTITY_NAME=${GOVWAY_ENTITY_NAME:-ente-example}
+      - GOVWAY_POP_DB_SKIP=${GOVWAY_POP_DB_SKIP:-false}
+    volumes:
+      - ./govway/govway_conf:/etc/govway
+      - ./govway/govway_log:/var/log/govway
+
+volumes:
+  postgres-data-host:
+    driver: local
+  eservice-data-host:
+    driver: local
+  function-data-host:
+    driver: local
+  ruleset-cache-host:
+    driver: local

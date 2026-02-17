@@ -1,0 +1,81 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Data runtime (da montare come volume)
+data/
+*.db
+*.db-journal
+.azurite/
+
+# Logs
+logs/
+*.log
+
+# Azure Function specifici
+.azurite.pid
+.eservice.pid
+.function.pid
+local.settings.json
+
+# Test e CI
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Documentation (opzionale, includere se serve in container)
+*.md
+!README.MD
+
+# Scripts di utility (includere perché main.py importa da qui)
+# scripts/
+
+# Sample files
+sample-*.yaml
+sample-*.json
+
+# Temporary files
+tmp/
+temp/
+*.tmp

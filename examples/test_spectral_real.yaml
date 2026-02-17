@@ -1,0 +1,28 @@
+openapi: 3.0.3
+info:
+  title: Test API
+  version: 1.0.0
+  description: Test API for real Spectral validation
+  contact:
+    name: Test
+    email: test@example.com
+paths:
+  /test:
+    get:
+      summary: Test endpoint
+      operationId: getTest
+      tags:
+        - test
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+tags:
+  - name: test
+    description: Test operations

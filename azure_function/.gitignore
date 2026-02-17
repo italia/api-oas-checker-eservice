@@ -1,0 +1,17 @@
+# Azure Functions
+__pycache__/
+*.py[cod]
+*$py.class
+.python_packages/
+.venv/
+venv/
+
+# Azure Functions local settings
+local.settings.json
+
+# Azure Functions build output
+bin/
+obj/
+
+# Logs
+*.log

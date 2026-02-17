@@ -1,0 +1,13 @@
+openapi: 3.0.3
+info:
+  title: Test API with Errors
+  version: 1.0.0
+paths:
+  /users:
+    get:
+      operationId: getUsers
+      tags:
+        - users
+      responses:
+        '200':
+          description: Success

@@ -1,0 +1,133 @@
+components:
+  schemas:
+    IncaricoCessato:
+      additionalProperties: false
+      properties:
+        attoConferimento:
+          nullable: true
+          readOnly: true
+          type: string
+        cognome:
+          nullable: true
+          readOnly: true
+          type: string
+        curriculumVitae:
+          nullable: true
+          readOnly: true
+          type: string
+        dataAggiornamento:
+          format: date-time
+          nullable: true
+          readOnly: true
+          type: string
+        dataFineIncarico:
+          format: date-time
+          nullable: true
+          readOnly: true
+          type: string
+        dataInizioIncarico:
+          format: date-time
+          nullable: true
+          readOnly: true
+          type: string
+        dataPrimaPubblicazione:
+          format: date-time
+          nullable: true
+          readOnly: true
+          type: string
+        datiIncarichiPressoAltriEnti:
+          nullable: true
+          readOnly: true
+          type: string
+        descrizioneRuolo:
+          nullable: true
+          readOnly: true
+          type: string
+        dettaglioCompensi:
+          nullable: true
+          readOnly: true
+          type: string
+        dichiarazioniPatrimonialiPostUltimaAttestazione:
+          nullable: true
+          readOnly: true
+          type: string
+        dichiarazioniRedditi:
+          nullable: true
+          readOnly: true
+          type: string
+        id:
+          format: int32
+          readOnly: true
+          type: integer
+        isAttivo:
+          readOnly: true
+          type: boolean
+        nome:
+          nullable: true
+          readOnly: true
+          type: string
+        note:
+          nullable: true
+          readOnly: true
+          type: string
+        tipo:
+          $ref: '#/components/schemas/TipoIncaricato'
+        ufficioRuolo:
+          nullable: true
+          readOnly: true
+          type: string
+      type: object
+    TipoIncaricato:
+      description: '0: Dipendente della pubblica amministrazione o
+
+        1: Soggetto estraneo alla pubblica amministrazione'
+      enum:
+      - '0'
+      - '1'
+      format: int32
+      type: integer
+  securitySchemes:
+    JWT:
+      scheme: bearer
+      type: http
+info:
+  contact:
+    email: dfranzoni@coopcsc.it
+  description: Consente di recuperare dati, documenti e informazioni relative ai dirigenti
+    (o posizioni organizzative con funzioni dirigenziali) che hanno cessato il loro
+    rapporto di lavoro con l'amministrazione.
+  termsOfService: https://www.comune.pisogne.bs.it/
+  title: Dirigenti cessati
+  version: 1.0.0
+  x-api-id: '1'
+  x-summary: Consente di recuperare dati, documenti e informazioni relative ai dirigenti
+    (o posizioni organizzative con funzioni dirigenziali) che hanno cessato il loro
+    rapporto di lavoro con l'amministrazione.
+openapi: 3.0.2
+paths:
+  /api/amministratori/data/dirigenti/cessati:
+    get:
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/IncaricoCessato'
+                type: array
+            text/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/IncaricoCessato'
+                type: array
+            text/plain:
+              schema:
+                items:
+                  $ref: '#/components/schemas/IncaricoCessato'
+                type: array
+          description: Success
+security:
+- JWT: []
+servers:
+- description: Comune Di Esine
+  url: pdnd.comune.esine.bs.it

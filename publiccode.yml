@@ -1,0 +1,43 @@
+# This file is compliant with the "Guidelines on the acquisition and reuse of software for the public administration"
+# of the Digital Italy Agency (AgID)
+#
+publiccodeYmlVersion: '0.2'
+name: OAS Checker e-service
+releaseDate: '2026-02-12'
+softwareType: standalone/backend
+url: 'https://github.com/italia/eservice-oaschecker'
+landingPage: 'https://github.com/italia/eservice-oaschecker#readme'
+platforms:
+  - web
+categories:
+  - development
+  - security
+developmentStatus: development
+softwareVersion: 1.0.0
+description:
+  it:
+    shortDescription: Servizio di validazione OpenAPI (OAS) tramite Spectral.
+    longDescription: |
+      OAS Checker è un e-service che permette la validazione di file OpenAPI (YAML/JSON)
+      utilizzando le regole definite da Spectral. Il servizio opera in modalità asincrona
+      delegando la validazione a una Azure Function e notificando i risultati tramite callback.
+legal:
+  license: EUPL-1.2
+  mainCopyrightOwner: 'Dipartimento per la Trasformazione Digitale - Presidenza del Consiglio dei Ministri'
+  repoOwner: 'Dipartimento per la Trasformazione Digitale'
+maintenance:
+  type: internal
+  contacts:
+    - name: Dipartimento per la Trasformazione Digitale
+localisation:
+  localisationReady: true
+  availableLanguages:
+    - it
+    - en
+it:
+  conformance:
+    modI: true
+    connettivita: true
+    sicurezza: true
+  piattaforma:
+    pdnd: true

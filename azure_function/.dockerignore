@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Virtual environments
+venv/
+env/
+.venv
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+
+# Git
+.git/
+.gitignore
+
+# Data runtime
+data/
+*.db
+
+# Logs
+*.log
+
+# Azure specifici (local.settings.json viene copiato per default env)
+# Se vuoi escluderlo in produzione, decommentare:
+# local.settings.json
+
+# Test
+tests/
+.pytest_cache/
+
+# Documentation
+*.md
+!README.md
+
+# Temporary
+*.tmp
+tmp/

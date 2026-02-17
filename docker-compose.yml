@@ -1,0 +1,123 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: oas-checker-postgres
+    hostname: postgres
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-15432}:${POSTGRES_PORT_INTERNAL:-5432}"
+    environment:
+      POSTGRES_DB: oaschecker
+      POSTGRES_USER: oaschecker
+      POSTGRES_PASSWORD: oaschecker_dev_password
+      PGPORT: ${POSTGRES_PORT_INTERNAL:-5432}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -p ${POSTGRES_PORT_INTERNAL:-5432} -U oaschecker"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - oas-checker-network
+
+  # e-service - FastAPI
+  eservice:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: oas-checker-eservice
+    hostname: eservice
+    restart: unless-stopped
+    ports:
+      - "${ESERVICE_PORT:-8000}:8000"
+    environment:
+      ESERVICE_HOST: 0.0.0.0
+      ESERVICE_PORT: 8000
+      DATABASE_URL: postgresql://oaschecker:oaschecker_dev_password@postgres:${POSTGRES_PORT_INTERNAL:-5432}/oaschecker
+      FUNCTION_TYPE: azure-local
+      FUNCTION_URL: http://azure-function:${FUNCTION_PORT_INTERNAL:-80}/api/validate
+      CALLBACK_BASE_URL: http://eservice:8000
+      RULESET_REPO: italia/api-oas-checker-rules
+      RULESET_VERSION: latest
+      RULESET_PATH: /app/data/rulesets
+      RULESET_AUTO_UPDATE: "true"
+      JWT_ENABLED: "true"
+      HMAC_ENABLED: "true"
+      CALLBACK_SECRET: "dev-secret-change-in-production"
+    volumes:
+      - eservice-data:/app/data
+      - ruleset-cache:/app/data/rulesets
+    depends_on:
+      postgres:
+        condition: service_healthy
+      azure-function:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/status"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - oas-checker-network
+
+  # Azure Function - ProcessValidation
+  azure-function:
+    platform: linux/amd64
+    build:
+      context: .
+      dockerfile: azure_function/Dockerfile
+    container_name: oas-checker-function
+    hostname: azure-function
+    restart: unless-stopped
+    ports:
+      - "${FUNCTION_PORT:-7071}:${FUNCTION_PORT_INTERNAL:-80}"
+    environment:
+      AzureWebJobsScriptRoot: /home/site/wwwroot
+      FUNCTIONS_WORKER_RUNTIME: python
+      CALLBACK_SECRET: "dev-secret-change-in-production"
+      RULESET_FUNCTIONS_PATH: /home/site/wwwroot/data/rulesets/functions
+      ASPNETCORE_URLS: "http://+:${FUNCTION_PORT_INTERNAL:-80}"
+    volumes:
+      - function-data:/home/site/wwwroot/data
+      - ruleset-cache:/home/site/wwwroot/data/rulesets
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${FUNCTION_PORT_INTERNAL:-80}/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    networks:
+      - oas-checker-network
+
+  # Govway
+  govway:
+    image: linkitaly/govway:latest
+    container_name: govway
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+      - "8082:8082"
+    environment:
+      - GOVWAY_DEFAULT_ENTITY_NAME=${GOVWAY_ENTITY_NAME:-ente-example}
+      - GOVWAY_POP_DB_SKIP=${GOVWAY_POP_DB_SKIP:-false}
+    volumes:
+      - ./govway/govway_conf:/etc/govway
+      - ./govway/govway_log:/var/log/govway
+    restart: unless-stopped
+    networks:
+      - oas-checker-network
+
+volumes:
+  postgres-data:
+    driver: local
+  eservice-data:
+    driver: local
+  function-data:
+    driver: local
+  ruleset-cache:
+    driver: local
+
+networks:
+  oas-checker-network:
+    driver: bridge
