@@ -1,0 +1,152 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+env:
+  REGISTRY: ghcr.io
+  ESERVICE_IMAGE: ghcr.io/${{ github.repository_owner }}/oas-checker-eservice
+  FUNCTION_IMAGE: ghcr.io/${{ github.repository_owner }}/oas-checker-function
+  HELM_CHART: oci://ghcr.io/${{ github.repository_owner }}/api-oas-checker-eservice/charts
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run tests
+        run: pytest -m "not integration and not e2e" --tb=short -q
+
+  build-eservice:
+    name: Build eservice image
+    runs-on: ubuntu-latest
+    needs: test
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push eservice
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: |
+            ${{ env.ESERVICE_IMAGE }}:${{ steps.version.outputs.version }}
+            ${{ env.ESERVICE_IMAGE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
+
+  build-function:
+    name: Build function image
+    runs-on: ubuntu-latest
+    needs: test
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push function
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: azure_function/Dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: |
+            ${{ env.FUNCTION_IMAGE }}:${{ steps.version.outputs.version }}
+            ${{ env.FUNCTION_IMAGE }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          labels: |
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+            org.opencontainers.image.version=${{ steps.version.outputs.version }}
+
+  publish-helm:
+    name: Publish Helm chart
+    runs-on: ubuntu-latest
+    needs: [build-eservice, build-function]
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Helm
+        uses: azure/setup-helm@v4
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Update Chart.yaml version and appVersion
+        run: |
+          sed -i "s/^version:.*/version: ${{ steps.version.outputs.version }}/" helm/oas-checker/Chart.yaml
+          sed -i "s/^appVersion:.*/appVersion: \"${{ steps.version.outputs.version }}\"/" helm/oas-checker/Chart.yaml
+
+      - name: Helm dependency update
+        run: helm dependency update helm/oas-checker
+
+      - name: Helm lint
+        run: |
+          helm lint helm/oas-checker --strict \
+            --set externalDatabase.host=db.example.com \
+            --set externalDatabase.password=test
+
+      - name: Log in to GHCR for Helm
+        run: echo "${{ secrets.GITHUB_TOKEN }}" | helm registry login ${{ env.REGISTRY }} -u ${{ github.actor }} --password-stdin
+
+      - name: Package and push Helm chart
+        run: |
+          helm package helm/oas-checker
+          helm push oas-checker-${{ steps.version.outputs.version }}.tgz ${{ env.HELM_CHART }}
