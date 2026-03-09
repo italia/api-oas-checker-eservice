@@ -1,0 +1,62 @@
+{{- if .Values.govway.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "oas-checker.fullname" . }}-govway
+  labels:
+    {{- include "oas-checker.govway.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "oas-checker.govway.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.govway.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "oas-checker.govway.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "oas-checker.serviceAccountName" . }}
+      containers:
+        - name: govway
+          image: "{{ .Values.govway.image.repository }}:{{ .Values.govway.image.tag }}"
+          imagePullPolicy: {{ .Values.govway.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            - name: https
+              containerPort: 8081
+              protocol: TCP
+            - name: management
+              containerPort: 8082
+              protocol: TCP
+          env:
+            - name: GOVWAY_DEFAULT_ENTITY_NAME
+              value: {{ .Values.govway.entityName | quote }}
+            - name: GOVWAY_POP_DB_SKIP
+              value: {{ .Values.govway.popDbSkip | quote }}
+            {{- range $key, $value := .Values.govway.extraEnv }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          {{- with .Values.govway.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.govway.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.govway.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.govway.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

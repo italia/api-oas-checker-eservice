@@ -1,0 +1,260 @@
+# -- OAS Checker e-service Helm Values
+
+# =============================================================================
+# E-Service (FastAPI)
+# =============================================================================
+eservice:
+  replicaCount: 1
+
+  image:
+    repository: ghcr.io/italia/oas-checker-eservice
+    tag: ""  # defaults to Chart.appVersion
+    pullPolicy: IfNotPresent
+
+  imagePullSecrets: []
+
+  service:
+    type: ClusterIP
+    port: 8000
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # Additional environment variables (key: value)
+  extraEnv: {}
+
+  # Pod-level settings
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podAnnotations: {}
+  podSecurityContext:
+    runAsUser: 1000
+    runAsNonRoot: true
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false
+
+  # Probes
+  livenessProbe:
+    httpGet:
+      path: /status
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 30
+    timeoutSeconds: 3
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /status
+      port: http
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 3
+    failureThreshold: 3
+
+  # Application config
+  config:
+    openApiServerUrl: ""  # auto-generated if empty
+    logLevel: INFO
+    functionType: azure-local  # mock | azure | azure-local
+    jwtEnabled: "true"
+    hmacEnabled: "true"
+    hmacTimestampWindow: "300"
+    rulesetRepo: italia/api-oas-checker-rules
+    rulesetVersion: latest
+    rulesetAutoUpdate: "true"
+    rateLimitEnabled: "true"
+    rateLimitValidateRequests: "10"
+    rateLimitValidateWindow: "60"
+    rateLimitReportRequests: "60"
+    rateLimitReportWindow: "60"
+    rateLimitDefaultRequests: "30"
+    rateLimitDefaultWindow: "60"
+    rateLimitCleanupHours: "24"
+
+# =============================================================================
+# Worker Spectral (validation engine)
+# =============================================================================
+worker:
+  # -- Worker mode: "knative" | "deployment" | "external"
+  # knative:    creates a Knative Service (requires Knative Serving in cluster)
+  # deployment: creates a standard K8s Deployment + Service
+  # external:   no resources created; eservice points to worker.externalUrl
+  mode: knative
+
+  # -- URL for external worker (only used when mode=external)
+  # Example: https://my-func.azurewebsites.net/api/validate
+  externalUrl: ""
+
+  image:
+    repository: ghcr.io/italia/oas-checker-function
+    tag: ""  # defaults to Chart.appVersion
+    pullPolicy: IfNotPresent
+
+  imagePullSecrets: []
+
+  # Only used when mode=deployment
+  replicaCount: 1
+
+  service:
+    type: ClusterIP
+    port: 80
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+  extraEnv: {}
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podAnnotations: {}
+
+  # Knative-specific settings (only used when mode=knative)
+  knative:
+    minScale: 0
+    maxScale: 5
+    concurrencyTarget: 10
+    concurrencyLimit: 0  # 0 = unlimited
+    scaleDownDelay: "60s"
+    containerPort: 80
+
+  # Probes (used in deployment mode; Knative manages its own)
+  livenessProbe:
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 15
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /
+      port: http
+    initialDelaySeconds: 10
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+# =============================================================================
+# GovWay (optional API gateway)
+# =============================================================================
+govway:
+  enabled: false
+
+  image:
+    repository: linkitaly/govway
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  service:
+    type: ClusterIP
+    ports:
+      http: 8080
+      https: 8081
+      management: 8082
+
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+  extraEnv: {}
+  entityName: ente-example
+  popDbSkip: "false"
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+  podAnnotations: {}
+
+# =============================================================================
+# PostgreSQL (Bitnami subchart) - for dev/test
+# =============================================================================
+# Set postgresql.enabled=true to deploy PostgreSQL in-cluster via Bitnami.
+# Set postgresql.enabled=false to use an external shared database.
+postgresql:
+  enabled: false
+  auth:
+    username: oaschecker
+    password: oaschecker
+    database: oaschecker
+
+# =============================================================================
+# External Database - for production (used when postgresql.enabled=false)
+# =============================================================================
+externalDatabase:
+  # Full connection URL (takes precedence over individual fields)
+  # Example: postgresql://user:pass@db.example.com:5432/oaschecker
+  url: ""
+  # Individual fields (used to build URL if externalDatabase.url is empty)
+  host: ""
+  port: 5432
+  user: oaschecker
+  password: ""
+  database: oaschecker
+
+# =============================================================================
+# Secrets
+# =============================================================================
+secrets:
+  # -- Use an existing secret instead of creating one.
+  # The secret must contain keys: DATABASE_URL, CALLBACK_SECRET
+  # and optionally AZURE_FUNCTION_KEY
+  existingSecret: ""
+
+  # Values below are ignored if existingSecret is set
+  callbackSecret: "change-me-in-production"
+  azureFunctionKey: ""
+
+# =============================================================================
+# Ingress
+# =============================================================================
+ingress:
+  enabled: false
+  className: nginx
+  annotations: {}
+    # cert-manager.io/cluster-issuer: letsencrypt-prod
+  hosts:
+    - host: oas-checker.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+          service: eservice
+  tls: []
+  #  - secretName: oas-checker-tls
+  #    hosts:
+  #      - oas-checker.example.com
+
+# =============================================================================
+# Ruleset Cache (shared PVC)
+# =============================================================================
+rulesetCache:
+  enabled: true
+  size: 1Gi
+  storageClass: ""
+  accessModes:
+    - ReadWriteOnce
+
+# =============================================================================
+# Service Account
+# =============================================================================
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}

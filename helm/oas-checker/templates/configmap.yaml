@@ -1,0 +1,31 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "oas-checker.configMapName" . }}
+  labels:
+    {{- include "oas-checker.labels" . | nindent 4 }}
+data:
+  ESERVICE_HOST: "0.0.0.0"
+  ESERVICE_PORT: {{ .Values.eservice.service.port | quote }}
+  {{- if .Values.eservice.config.openApiServerUrl }}
+  OPENAPI_SERVER_URL: {{ .Values.eservice.config.openApiServerUrl | quote }}
+  {{- end }}
+  LOG_LEVEL: {{ .Values.eservice.config.logLevel | quote }}
+  FUNCTION_TYPE: {{ .Values.eservice.config.functionType | quote }}
+  FUNCTION_URL: {{ include "oas-checker.functionUrl" . | quote }}
+  CALLBACK_BASE_URL: {{ include "oas-checker.callbackUrl" . | quote }}
+  RULESET_REPO: {{ .Values.eservice.config.rulesetRepo | quote }}
+  RULESET_VERSION: {{ .Values.eservice.config.rulesetVersion | quote }}
+  RULESET_PATH: "/app/data/rulesets"
+  RULESET_AUTO_UPDATE: {{ .Values.eservice.config.rulesetAutoUpdate | quote }}
+  JWT_ENABLED: {{ .Values.eservice.config.jwtEnabled | quote }}
+  HMAC_ENABLED: {{ .Values.eservice.config.hmacEnabled | quote }}
+  HMAC_TIMESTAMP_WINDOW: {{ .Values.eservice.config.hmacTimestampWindow | quote }}
+  RATE_LIMIT_ENABLED: {{ .Values.eservice.config.rateLimitEnabled | quote }}
+  RATE_LIMIT_VALIDATE_REQUESTS: {{ .Values.eservice.config.rateLimitValidateRequests | quote }}
+  RATE_LIMIT_VALIDATE_WINDOW: {{ .Values.eservice.config.rateLimitValidateWindow | quote }}
+  RATE_LIMIT_REPORT_REQUESTS: {{ .Values.eservice.config.rateLimitReportRequests | quote }}
+  RATE_LIMIT_REPORT_WINDOW: {{ .Values.eservice.config.rateLimitReportWindow | quote }}
+  RATE_LIMIT_DEFAULT_REQUESTS: {{ .Values.eservice.config.rateLimitDefaultRequests | quote }}
+  RATE_LIMIT_DEFAULT_WINDOW: {{ .Values.eservice.config.rateLimitDefaultWindow | quote }}
+  RATE_LIMIT_CLEANUP_HOURS: {{ .Values.eservice.config.rateLimitCleanupHours | quote }}

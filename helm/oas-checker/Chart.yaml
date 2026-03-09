@@ -1,0 +1,24 @@
+apiVersion: v2
+name: oas-checker
+description: OAS Checker e-service - Validazione OpenAPI con Spectral per la PA italiana
+type: application
+version: 0.1.0
+appVersion: "1.0.0"
+keywords:
+  - openapi
+  - spectral
+  - validation
+  - fastapi
+  - modi
+  - pdnd
+maintainers:
+  - name: OAS Checker Team
+home: https://github.com/italia/api-oas-checker-eservice
+sources:
+  - https://github.com/italia/api-oas-checker-eservice
+
+dependencies:
+  - name: postgresql
+    version: "~16.4"
+    repository: oci://registry-1.docker.io/bitnamicharts
+    condition: postgresql.enabled
