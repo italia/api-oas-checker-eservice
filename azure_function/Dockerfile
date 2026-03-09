@@ -35,7 +35,6 @@ RUN cd /home/site/wwwroot && \
 
 # Copia configurazione Azure Functions
 COPY azure_function/host.json /home/site/wwwroot/
-COPY azure_function/local.settings.json /home/site/wwwroot/
 
 # Copia moduli condivisi (dalla root)
 COPY shared/ /home/site/wwwroot/shared/
