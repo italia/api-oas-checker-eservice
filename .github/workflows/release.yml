@@ -14,7 +14,7 @@ env:
 jobs:
   test:
     name: Test
-    runs-on: arc-runner-italia
+    runs-on: arc-runner-oas-checker
     steps:
       - uses: actions/checkout@v4
 
@@ -32,7 +32,7 @@ jobs:
 
   build-eservice:
     name: Build eservice image
-    runs-on: arc-runner-italia
+    runs-on: arc-runner-oas-checker
     needs: test
     permissions:
       contents: read
@@ -74,7 +74,7 @@ jobs:
 
   build-function:
     name: Build function image
-    runs-on: arc-runner-italia
+    runs-on: arc-runner-oas-checker
     needs: test
     permissions:
       contents: read
@@ -117,7 +117,7 @@ jobs:
 
   publish-helm:
     name: Publish Helm chart
-    runs-on: arc-runner-italia
+    runs-on: arc-runner-oas-checker
     needs: [build-eservice, build-function]
     permissions:
       contents: read
