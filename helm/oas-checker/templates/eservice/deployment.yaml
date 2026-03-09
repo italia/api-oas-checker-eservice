@@ -1,0 +1,90 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "oas-checker.fullname" . }}-eservice
+  labels:
+    {{- include "oas-checker.eservice.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.eservice.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "oas-checker.eservice.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- with .Values.eservice.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "oas-checker.eservice.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "oas-checker.serviceAccountName" . }}
+      {{- with .Values.eservice.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.eservice.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: eservice
+          image: {{ include "oas-checker.eservice.image" . }}
+          imagePullPolicy: {{ .Values.eservice.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.eservice.service.port }}
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: {{ include "oas-checker.configMapName" . }}
+            - secretRef:
+                name: {{ include "oas-checker.secretName" . }}
+          {{- with .Values.eservice.extraEnv }}
+          env:
+            {{- range $key, $value := . }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          {{- end }}
+          {{- with .Values.eservice.containerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.eservice.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.eservice.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.eservice.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            {{- if .Values.rulesetCache.enabled }}
+            - name: ruleset-cache
+              mountPath: /app/data/rulesets
+            {{- end }}
+      volumes:
+        {{- if .Values.rulesetCache.enabled }}
+        - name: ruleset-cache
+          persistentVolumeClaim:
+            claimName: {{ include "oas-checker.rulesetCachePvcName" . }}
+        {{- end }}
+      {{- with .Values.eservice.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.eservice.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.eservice.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

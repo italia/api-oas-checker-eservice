@@ -1,0 +1,25 @@
+{{- if .Values.govway.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "oas-checker.fullname" . }}-govway
+  labels:
+    {{- include "oas-checker.govway.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.govway.service.type }}
+  ports:
+    - port: {{ .Values.govway.service.ports.http }}
+      targetPort: http
+      protocol: TCP
+      name: http
+    - port: {{ .Values.govway.service.ports.https }}
+      targetPort: https
+      protocol: TCP
+      name: https
+    - port: {{ .Values.govway.service.ports.management }}
+      targetPort: management
+      protocol: TCP
+      name: management
+  selector:
+    {{- include "oas-checker.govway.selectorLabels" . | nindent 4 }}
+{{- end }}

@@ -65,5 +65,8 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 
-# GovWay
-govway/
+# GovWay (local config/logs, not the helm templates)
+/govway/
+
+# Helm dependencies (regenerate with: helm dependency update)
+helm/oas-checker/charts/*.tgz

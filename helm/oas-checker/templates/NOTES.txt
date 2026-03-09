@@ -1,0 +1,50 @@
+OAS Checker e-service deployed successfully!
+
+=== E-Service (FastAPI) ===
+  Service: {{ include "oas-checker.fullname" . }}-eservice:{{ .Values.eservice.service.port }}
+
+{{- if .Values.ingress.enabled }}
+
+=== Ingress ===
+{{- range .Values.ingress.hosts }}
+  URL: http{{ if $.Values.ingress.tls }}s{{ end }}://{{ .host }}
+{{- end }}
+{{- else }}
+
+  To access the e-service locally, run:
+    kubectl port-forward svc/{{ include "oas-checker.fullname" . }}-eservice {{ .Values.eservice.service.port }}:{{ .Values.eservice.service.port }}
+  Then open: http://localhost:{{ .Values.eservice.service.port }}/docs
+{{- end }}
+
+=== Worker Spectral ===
+  Mode: {{ .Values.worker.mode }}
+{{- if eq .Values.worker.mode "knative" }}
+  Knative Service: {{ include "oas-checker.fullname" . }}-worker
+  Scale: {{ .Values.worker.knative.minScale }} - {{ .Values.worker.knative.maxScale }}
+{{- else if eq .Values.worker.mode "deployment" }}
+  Service: {{ include "oas-checker.fullname" . }}-worker:{{ .Values.worker.service.port }}
+  Replicas: {{ .Values.worker.replicaCount }}
+{{- else if eq .Values.worker.mode "external" }}
+  External URL: {{ .Values.worker.externalUrl }}
+{{- end }}
+
+=== Database ===
+{{- if .Values.postgresql.enabled }}
+  PostgreSQL (Bitnami subchart) deployed in-cluster
+  Database: {{ .Values.postgresql.auth.database }}
+{{- else }}
+  Using external database
+  {{- if .Values.externalDatabase.url }}
+  URL: (from externalDatabase.url)
+  {{- else }}
+  Host: {{ .Values.externalDatabase.host }}:{{ .Values.externalDatabase.port }}
+  Database: {{ .Values.externalDatabase.database }}
+  {{- end }}
+{{- end }}
+
+{{- if .Values.govway.enabled }}
+
+=== GovWay ===
+  Service: {{ include "oas-checker.fullname" . }}-govway
+  Ports: HTTP={{ .Values.govway.service.ports.http }}, HTTPS={{ .Values.govway.service.ports.https }}, Mgmt={{ .Values.govway.service.ports.management }}
+{{- end }}

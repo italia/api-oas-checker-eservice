@@ -1,0 +1,19 @@
+{{- if .Values.rulesetCache.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "oas-checker.rulesetCachePvcName" . }}
+  labels:
+    {{- include "oas-checker.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    {{- range .Values.rulesetCache.accessModes }}
+    - {{ . }}
+    {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.rulesetCache.size }}
+  {{- if .Values.rulesetCache.storageClass }}
+  storageClassName: {{ .Values.rulesetCache.storageClass | quote }}
+  {{- end }}
+{{- end }}

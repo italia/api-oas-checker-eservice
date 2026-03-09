@@ -1,0 +1,72 @@
+{{- if eq .Values.worker.mode "knative" }}
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: {{ include "oas-checker.fullname" . }}-worker
+  labels:
+    {{- include "oas-checker.worker.labels" . | nindent 4 }}
+spec:
+  template:
+    metadata:
+      annotations:
+        autoscaling.knative.dev/minScale: {{ .Values.worker.knative.minScale | quote }}
+        autoscaling.knative.dev/maxScale: {{ .Values.worker.knative.maxScale | quote }}
+        autoscaling.knative.dev/target: {{ .Values.worker.knative.concurrencyTarget | quote }}
+        {{- if gt (int .Values.worker.knative.concurrencyLimit) 0 }}
+        autoscaling.knative.dev/targetUtilizationPercentage: "70"
+        {{- end }}
+        autoscaling.knative.dev/scale-down-delay: {{ .Values.worker.knative.scaleDownDelay | quote }}
+        {{- with .Values.worker.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "oas-checker.worker.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "oas-checker.serviceAccountName" . }}
+      {{- if gt (int .Values.worker.knative.concurrencyLimit) 0 }}
+      containerConcurrency: {{ .Values.worker.knative.concurrencyLimit }}
+      {{- end }}
+      containers:
+        - image: {{ include "oas-checker.worker.image" . }}
+          imagePullPolicy: {{ .Values.worker.image.pullPolicy }}
+          ports:
+            - containerPort: {{ .Values.worker.knative.containerPort }}
+              protocol: TCP
+          env:
+            - name: AzureWebJobsScriptRoot
+              value: /home/site/wwwroot
+            - name: FUNCTIONS_WORKER_RUNTIME
+              value: python
+            - name: CALLBACK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "oas-checker.secretName" . }}
+                  key: CALLBACK_SECRET
+            - name: RULESET_FUNCTIONS_PATH
+              value: /home/site/wwwroot/data/rulesets/functions
+            - name: ASPNETCORE_URLS
+              value: "http://+:{{ .Values.worker.knative.containerPort }}"
+            {{- range $key, $value := .Values.worker.extraEnv }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          {{- with .Values.worker.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- if .Values.rulesetCache.enabled }}
+          volumeMounts:
+            - name: ruleset-cache
+              mountPath: /home/site/wwwroot/data/rulesets
+          {{- end }}
+      {{- if .Values.rulesetCache.enabled }}
+      volumes:
+        - name: ruleset-cache
+          persistentVolumeClaim:
+            claimName: {{ include "oas-checker.rulesetCachePvcName" . }}
+      {{- end }}
+      {{- with .Values.worker.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

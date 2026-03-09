@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "oas-checker.fullname" . }}-eservice
+  labels:
+    {{- include "oas-checker.eservice.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.eservice.service.type }}
+  ports:
+    - port: {{ .Values.eservice.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "oas-checker.eservice.selectorLabels" . | nindent 4 }}

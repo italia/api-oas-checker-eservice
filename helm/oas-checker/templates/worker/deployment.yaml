@@ -1,0 +1,89 @@
+{{- if eq .Values.worker.mode "deployment" }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "oas-checker.fullname" . }}-worker
+  labels:
+    {{- include "oas-checker.worker.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.worker.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "oas-checker.worker.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/secret: {{ include (print $.Template.BasePath "/secret.yaml") . | sha256sum }}
+        {{- with .Values.worker.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "oas-checker.worker.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: {{ include "oas-checker.serviceAccountName" . }}
+      {{- with .Values.worker.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: worker
+          image: {{ include "oas-checker.worker.image" . }}
+          imagePullPolicy: {{ .Values.worker.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.worker.service.port }}
+              protocol: TCP
+          env:
+            - name: AzureWebJobsScriptRoot
+              value: /home/site/wwwroot
+            - name: FUNCTIONS_WORKER_RUNTIME
+              value: python
+            - name: CALLBACK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "oas-checker.secretName" . }}
+                  key: CALLBACK_SECRET
+            - name: RULESET_FUNCTIONS_PATH
+              value: /home/site/wwwroot/data/rulesets/functions
+            - name: ASPNETCORE_URLS
+              value: "http://+:{{ .Values.worker.service.port }}"
+            {{- range $key, $value := .Values.worker.extraEnv }}
+            - name: {{ $key }}
+              value: {{ $value | quote }}
+            {{- end }}
+          {{- with .Values.worker.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.worker.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.worker.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          volumeMounts:
+            {{- if .Values.rulesetCache.enabled }}
+            - name: ruleset-cache
+              mountPath: /home/site/wwwroot/data/rulesets
+            {{- end }}
+      volumes:
+        {{- if .Values.rulesetCache.enabled }}
+        - name: ruleset-cache
+          persistentVolumeClaim:
+            claimName: {{ include "oas-checker.rulesetCachePvcName" . }}
+        {{- end }}
+      {{- with .Values.worker.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.worker.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.worker.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
