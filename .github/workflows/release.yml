@@ -14,7 +14,7 @@ env:
 jobs:
   test:
     name: Test
-    runs-on: ubuntu-latest
+    runs-on: arc-runner-italia
     steps:
       - uses: actions/checkout@v4
 
@@ -32,7 +32,7 @@ jobs:
 
   build-eservice:
     name: Build eservice image
-    runs-on: ubuntu-latest
+    runs-on: arc-runner-italia
     needs: test
     permissions:
       contents: read
@@ -43,6 +43,8 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker-container
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -64,15 +66,15 @@ jobs:
           tags: |
             ${{ env.ESERVICE_IMAGE }}:${{ steps.version.outputs.version }}
             ${{ env.ESERVICE_IMAGE }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=registry,ref=${{ env.ESERVICE_IMAGE }}:buildcache
+          cache-to: type=registry,ref=${{ env.ESERVICE_IMAGE }}:buildcache,mode=max
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.version=${{ steps.version.outputs.version }}
 
   build-function:
     name: Build function image
-    runs-on: ubuntu-latest
+    runs-on: arc-runner-italia
     needs: test
     permissions:
       contents: read
@@ -83,6 +85,8 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          driver: docker-container
 
       - name: Log in to GHCR
         uses: docker/login-action@v3
@@ -105,15 +109,15 @@ jobs:
           tags: |
             ${{ env.FUNCTION_IMAGE }}:${{ steps.version.outputs.version }}
             ${{ env.FUNCTION_IMAGE }}:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=registry,ref=${{ env.FUNCTION_IMAGE }}:buildcache
+          cache-to: type=registry,ref=${{ env.FUNCTION_IMAGE }}:buildcache,mode=max
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
             org.opencontainers.image.version=${{ steps.version.outputs.version }}
 
   publish-helm:
     name: Publish Helm chart
-    runs-on: ubuntu-latest
+    runs-on: arc-runner-italia
     needs: [build-eservice, build-function]
     permissions:
       contents: read
