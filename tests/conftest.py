@@ -13,6 +13,7 @@ os.environ["DATABASE_URL"] = "sqlite:///test.db"
 os.environ["JWT_ENABLED"] = "false"
 os.environ["HMAC_ENABLED"] = "false"
 os.environ["RULESET_AUTO_UPDATE"] = "false"
+os.environ["RATE_LIMIT_ENABLED"] = "false"
 os.environ["LOG_LEVEL"] = "DEBUG"
 
 from database.db import Database
