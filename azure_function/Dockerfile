@@ -46,10 +46,13 @@ COPY azure_function/ProcessValidation/ /home/site/wwwroot/ProcessValidation/
 ENV FUNCTIONS_WORKER_RUNTIME=python \
     PYTHON_THREADPOOL_THREAD_COUNT=4
 
-# Crea directory per storage/cache
-RUN mkdir -p /home/site/wwwroot/data/rulesets
+# Crea directory per storage/cache and set permissions for non-root user
+RUN mkdir -p /home/site/wwwroot/data/rulesets && \
+    useradd -m -u 1000 funcuser && \
+    chown -R funcuser:funcuser /home/site/wwwroot
 
-# Espone porta 80
+USER funcuser
+
 EXPOSE 80
 
 # Health check

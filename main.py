@@ -88,13 +88,16 @@ async def lifespan(app: FastAPI):
     else:
         logger.info("Ruleset auto-update disabled (RULESET_AUTO_UPDATE=false)")
 
-    # Generate OpenAPI schema on startup
-    try:
-        from scripts.generate_openapi import generate_openapi_schema
-        logger.info("Generating OpenAPI schema...")
-        generate_openapi_schema(output_format="both", output_dir=".")
-    except Exception as e:
-        logger.warning(f"Warning: Failed to generate OpenAPI schema: {e}")
+    # Generate OpenAPI schema on startup (requires writable CWD, disable in prod)
+    if config.OPENAPI_GENERATE_ON_STARTUP:
+        try:
+            from scripts.generate_openapi import generate_openapi_schema
+            logger.info("Generating OpenAPI schema...")
+            generate_openapi_schema(output_format="both", output_dir=".")
+        except Exception as e:
+            logger.warning(f"Warning: Failed to generate OpenAPI schema: {e}")
+    else:
+        logger.info("OpenAPI schema generation disabled (OPENAPI_GENERATE_ON_STARTUP=false)")
 
     # Start rate limit cleanup task
     if config.RATE_LIMIT_ENABLED:

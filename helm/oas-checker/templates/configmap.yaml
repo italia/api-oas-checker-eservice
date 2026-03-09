@@ -29,3 +29,4 @@ data:
   RATE_LIMIT_DEFAULT_REQUESTS: {{ .Values.eservice.config.rateLimitDefaultRequests | quote }}
   RATE_LIMIT_DEFAULT_WINDOW: {{ .Values.eservice.config.rateLimitDefaultWindow | quote }}
   RATE_LIMIT_CLEANUP_HOURS: {{ .Values.eservice.config.rateLimitCleanupHours | quote }}
+  OPENAPI_GENERATE_ON_STARTUP: {{ .Values.eservice.config.openApiGenerateOnStartup | quote }}

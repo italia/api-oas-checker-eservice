@@ -326,6 +326,202 @@ kubectl get pods -n knative-serving
 
 Per ridurre il cold start su Knative, si puo' considerare in futuro di creare un Dockerfile "leggero" basato su Python puro (senza il runtime Azure Functions), dato che il container viene invocato via HTTP standard. Questo ridurrebbe l'immagine da ~1GB a ~300MB.
 
+## Autoscaling (HPA)
+
+L'eservice supporta l'Horizontal Pod Autoscaler per scalare automaticamente in base al carico:
+
+```yaml
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 6
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+```
+
+Quando `autoscaling.enabled: true`, il campo `eservice.replicaCount` viene ignorato e l'HPA gestisce il numero di repliche. Il worker Knative ha il proprio autoscaling gestito da Knative (`worker.knative.minScale` / `maxScale`).
+
+## Sicurezza
+
+Il chart applica le best practice di sicurezza Kubernetes per tutti i container.
+
+### Security Context
+
+| Impostazione | eservice | worker (Knative) | worker (Deployment) | govway |
+|---|---|---|---|---|
+| `runAsNonRoot` | true (UID 1000) | false * | true (UID 1000) | false (upstream) |
+| `readOnlyRootFilesystem` | true | false * | true | false (upstream) |
+| `allowPrivilegeEscalation` | false | false | false | false |
+| `capabilities.drop` | ALL | N/A ** | ALL | ALL |
+| `seccompProfile` | RuntimeDefault | N/A ** | RuntimeDefault | RuntimeDefault |
+
+\* Il worker Azure Functions ascolta sulla porta 80 (richiede root) e scrive in directory interne del runtime. Per un hardening completo, ricostruire l'immagine per ascoltare su porta > 1024 e girare come non-root.
+
+\*\* Knative Serving non permette `capabilities.add` ne' `capabilities.drop` nel `securityContext` dei container.
+
+Le directory scrivibili sono montate come `emptyDir`:
+
+| Container | Path | Scopo |
+|---|---|---|
+| eservice | `/tmp` | File temporanei (Spectral validation) |
+| eservice | `/app/data/rulesets` | Cache rulesets (scaricati da GitHub all'avvio) |
+| worker | `/tmp` | File temporanei (Spectral validation) |
+
+Per sovrascrivere i security context:
+
+```yaml
+eservice:
+  podSecurityContext:
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    runAsNonRoot: true
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop: [ALL]
+    seccompProfile:
+      type: RuntimeDefault
+```
+
+### Network Policy
+
+Il chart include NetworkPolicy che limitano il traffico in ingresso e uscita per ogni componente:
+
+```mermaid
+graph LR
+    internet((Internet))
+    ingress["Ingress NGINX"]
+    eservice["eservice :8000"]
+    worker["worker :80"]
+    db["PostgreSQL :5432"]
+    github["GitHub API :443"]
+    dns["DNS :53"]
+
+    internet --> ingress
+    ingress -->|"ingress"| eservice
+    eservice -->|"egress"| worker
+    eservice -->|"egress"| db
+    eservice -->|"egress"| github
+    eservice -->|"egress"| dns
+    worker -->|"callback"| eservice
+    worker -->|"egress"| dns
+```
+
+**eservice:**
+- Ingress: da ingress-nginx (porta 8000), da worker (callback porta 8000)
+- Egress: verso worker (porta 80), verso DB (porta 5432), verso GitHub API (porta 443), DNS
+
+**worker:**
+- Ingress: da eservice (porta 80), da Knative system (se mode=knative)
+- Egress: verso eservice (callback porta 8000), DNS
+
+**govway** (se abilitato):
+- Ingress: da ingress-nginx (porte 8080/8081)
+- Egress: verso eservice (porta 8000), DNS
+
+```yaml
+networkPolicy:
+  enabled: true
+  ingressNamespaceSelector:
+    kubernetes.io/metadata.name: ingress-nginx
+  allowExternalHttps: true
+  externalDatabaseCidr: ""  # es. "10.0.0.5/32" per restringere
+```
+
+### Ruleset Cache (PVC vs emptyDir)
+
+Il chart supporta due modalita' per la cache dei rulesets:
+
+| Modalita' | `rulesetCache.persistence` | Comportamento |
+|---|---|---|
+| **emptyDir** (default) | `false` | Ogni pod scarica i rulesets all'avvio da GitHub. Nessun PVC creato. Compatibile con multi-replica. |
+| **PVC** | `true` | Crea un PersistentVolumeClaim. Richiede `ReadWriteMany` per multi-replica. |
+
+```yaml
+rulesetCache:
+  enabled: true
+  persistence: false  # emptyDir (consigliato)
+  size: 1Gi
+```
+
+## Monitoraggio
+
+### Prometheus (ServiceMonitor + PrometheusRule)
+
+Il chart include template per Prometheus Operator. Richiedono che il Prometheus Operator sia installato nel cluster.
+
+```yaml
+metrics:
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    labels:
+      release: kube-prometheus-stack
+
+  prometheusRule:
+    enabled: true
+    labels:
+      release: kube-prometheus-stack
+```
+
+**Alert inclusi:**
+
+| Alert | Severita' | Condizione |
+|---|---|---|
+| `OasCheckerDown` | critical | Tutte le repliche non disponibili per 5 minuti |
+| `OasCheckerPodRestarting` | warning | Piu' di 3 restart in 1 ora |
+| `OasCheckerReplicasMismatch` | warning | Repliche desiderate != repliche pronte per 10 minuti |
+
+> **Nota:** Il ServiceMonitor richiede che l'applicazione esponga un endpoint `/metrics` (da aggiungere con `prometheus_client` in Python). Gli alert usano metriche di kube-state-metrics gia' disponibili.
+
+### AlertmanagerConfig (notifiche email)
+
+Il chart puo' creare un `AlertmanagerConfig` per instradare gli alert via email tramite Alertmanager:
+
+```yaml
+metrics:
+  alertmanagerConfig:
+    enabled: true
+    namespace: monitoring
+    labels:
+      alertmanagerConfig: main
+    smtp:
+      from: "oas-checker@innovazione.gov.it"
+      smarthost: "smtp.eu.mailgun.org:587"
+      authUsername: "oas-checker@innovazione.gov.it"
+      authPasswordSecret:
+        name: alertmanager-smtp-secret
+        key: password
+      requireTLS: true
+    recipients:
+      - "admin1@example.com"
+      - "admin2@example.com"
+```
+
+L'`AlertmanagerConfig` viene creato nel namespace di Alertmanager (default: `monitoring`) e richiede un Secret SMTP preesistente nel cluster. Gli alert con pattern `OasChecker.*` vengono instradati ai destinatari configurati, con ripetizione ogni 4h (1h per alert critical).
+
+### Health Check
+
+L'eservice espone `GET /status` che ritorna `application/problem+json` (RFC 9457):
+
+```json
+{
+  "status": 200,
+  "title": "Service Operational",
+  "detail": "OAS Checker e-service is running and healthy"
+}
+```
+
+Il chart configura tre tipi di probe:
+
+| Probe | Scopo | Default |
+|---|---|---|
+| `startupProbe` | Protegge lo startup lento (download rulesets da GitHub). Evita che il liveness probe uccida il pod durante l'avvio. | 60s max (12 x 5s) |
+| `livenessProbe` | Riavvia il pod se non risponde | ogni 30s, 3 fallimenti |
+| `readinessProbe` | Rimuove il pod dal Service se non e' pronto | ogni 10s, 3 fallimenti |
+
 ## Parametri di riferimento
 
 ### eservice
@@ -370,6 +566,39 @@ Per ridurre il cold start su Knative, si puo' considerare in futuro di creare un
 | `externalDatabase.host` | `""` | Host DB esterno |
 | `externalDatabase.port` | `5432` | Porta DB esterno |
 
+### sicurezza e rete
+
+| Parametro | Default | Descrizione |
+|-----------|---------|-------------|
+| `eservice.containerSecurityContext.readOnlyRootFilesystem` | `true` | Filesystem in sola lettura |
+| `eservice.containerSecurityContext.runAsNonRoot` | `true` | Esecuzione non-root |
+| `worker.containerSecurityContext.readOnlyRootFilesystem` | `true` | Filesystem in sola lettura |
+| `networkPolicy.enabled` | `true` | Abilita NetworkPolicy |
+| `networkPolicy.ingressNamespaceSelector` | `{kubernetes.io/metadata.name: ingress-nginx}` | Label del namespace ingress |
+| `networkPolicy.allowExternalHttps` | `true` | Permetti egress HTTPS (GitHub API) |
+| `networkPolicy.externalDatabaseCidr` | `""` | CIDR per restringere egress DB |
+
+### autoscaling
+
+| Parametro | Default | Descrizione |
+|-----------|---------|-------------|
+| `autoscaling.enabled` | `false` | Abilita HPA per eservice |
+| `autoscaling.minReplicas` | `2` | Minimo repliche |
+| `autoscaling.maxReplicas` | `6` | Massimo repliche |
+| `autoscaling.targetCPUUtilizationPercentage` | `70` | Target CPU |
+| `autoscaling.targetMemoryUtilizationPercentage` | `80` | Target memoria |
+
+### monitoraggio
+
+| Parametro | Default | Descrizione |
+|-----------|---------|-------------|
+| `metrics.serviceMonitor.enabled` | `false` | Crea ServiceMonitor |
+| `metrics.serviceMonitor.interval` | `30s` | Intervallo di scraping |
+| `metrics.prometheusRule.enabled` | `false` | Crea PrometheusRule con alert |
+| `metrics.alertmanagerConfig.enabled` | `false` | Crea AlertmanagerConfig per notifiche email |
+| `metrics.alertmanagerConfig.namespace` | `monitoring` | Namespace di Alertmanager |
+| `metrics.alertmanagerConfig.recipients` | `[]` | Lista email destinatari alert |
+
 ### altri
 
 | Parametro | Default | Descrizione |
@@ -377,9 +606,11 @@ Per ridurre il cold start su Knative, si puo' considerare in futuro di creare un
 | `ingress.enabled` | `false` | Abilita Ingress |
 | `ingress.className` | `nginx` | Ingress class |
 | `govway.enabled` | `false` | Deploya GovWay |
-| `rulesetCache.enabled` | `true` | PVC per cache rulesets |
-| `rulesetCache.size` | `1Gi` | Dimensione PVC |
+| `rulesetCache.enabled` | `true` | Cache rulesets |
+| `rulesetCache.persistence` | `false` | Usa PVC (true) o emptyDir (false) |
+| `rulesetCache.size` | `1Gi` | Dimensione cache |
 | `secrets.existingSecret` | `""` | Nome di un Secret esistente |
+| `eservice.config.openApiGenerateOnStartup` | `false` | Genera schema OpenAPI all'avvio |
 
 ## Esempi di configurazione
 

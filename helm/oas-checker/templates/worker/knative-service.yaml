@@ -50,21 +50,21 @@ spec:
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}
+          {{- with .Values.worker.containerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- with .Values.worker.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
-          {{- if .Values.rulesetCache.enabled }}
           volumeMounts:
-            - name: ruleset-cache
-              mountPath: /home/site/wwwroot/data/rulesets
-          {{- end }}
-      {{- if .Values.rulesetCache.enabled }}
+            - name: tmp
+              mountPath: /tmp
       volumes:
-        - name: ruleset-cache
-          persistentVolumeClaim:
-            claimName: {{ include "oas-checker.rulesetCachePvcName" . }}
-      {{- end }}
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
       {{- with .Values.worker.imagePullSecrets }}
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}

@@ -1,0 +1,48 @@
+{{- if .Values.metrics.alertmanagerConfig.enabled }}
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: {{ include "oas-checker.fullname" . }}-notifications
+  namespace: {{ .Values.metrics.alertmanagerConfig.namespace | default "monitoring" }}
+  labels:
+    {{- include "oas-checker.labels" . | nindent 4 }}
+    {{- with .Values.metrics.alertmanagerConfig.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  receivers:
+    - name: {{ include "oas-checker.fullname" . }}-email
+      emailConfigs:
+        {{- range .Values.metrics.alertmanagerConfig.recipients }}
+        - to: {{ . | quote }}
+          from: {{ $.Values.metrics.alertmanagerConfig.smtp.from | quote }}
+          smarthost: {{ $.Values.metrics.alertmanagerConfig.smtp.smarthost | quote }}
+          authUsername: {{ $.Values.metrics.alertmanagerConfig.smtp.authUsername | quote }}
+          authPassword:
+            name: {{ $.Values.metrics.alertmanagerConfig.smtp.authPasswordSecret.name }}
+            key: {{ $.Values.metrics.alertmanagerConfig.smtp.authPasswordSecret.key }}
+          requireTLS: {{ $.Values.metrics.alertmanagerConfig.smtp.requireTLS }}
+          headers:
+            - key: Subject
+              value: '[{{ "{{ .Status | toUpper }}" }}] OAS Checker: {{ "{{ .CommonLabels.alertname }}" }}'
+        {{- end }}
+  route:
+    receiver: {{ include "oas-checker.fullname" . }}-email
+    groupBy:
+      - alertname
+      - namespace
+    groupWait: 30s
+    groupInterval: 5m
+    repeatInterval: 4h
+    matchers:
+      - matchType: "=~"
+        name: alertname
+        value: "OasChecker.*"
+    routes:
+      - matchers:
+          - matchType: "="
+            name: severity
+            value: critical
+        receiver: {{ include "oas-checker.fullname" . }}-email
+        repeatInterval: 1h
+{{- end }}

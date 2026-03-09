@@ -1,0 +1,56 @@
+{{- if .Values.metrics.prometheusRule.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "oas-checker.fullname" . }}
+  labels:
+    {{- include "oas-checker.labels" . | nindent 4 }}
+    {{- with .Values.metrics.prometheusRule.labels }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  groups:
+    - name: {{ include "oas-checker.fullname" . }}.rules
+      rules:
+        - alert: OasCheckerDown
+          expr: |
+            kube_deployment_status_available_replicas{
+              namespace="{{ .Release.Namespace }}",
+              deployment="{{ include "oas-checker.fullname" . }}-eservice"
+            } == 0
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "OAS Checker eservice is down"
+            description: "All replicas of {{ include "oas-checker.fullname" . }}-eservice are unavailable for 5 minutes."
+        - alert: OasCheckerPodRestarting
+          expr: |
+            increase(kube_pod_container_status_restarts_total{
+              namespace="{{ .Release.Namespace }}",
+              container="eservice"
+            }[1h]) > 3
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "OAS Checker pod is restarting frequently"
+            {{`description: "Pod {{ $labels.pod }} has restarted more than 3 times in the last hour."`}}
+        - alert: OasCheckerReplicasMismatch
+          expr: |
+            kube_deployment_spec_replicas{
+              namespace="{{ .Release.Namespace }}",
+              deployment="{{ include "oas-checker.fullname" . }}-eservice"
+            }
+            !=
+            kube_deployment_status_ready_replicas{
+              namespace="{{ .Release.Namespace }}",
+              deployment="{{ include "oas-checker.fullname" . }}-eservice"
+            }
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "OAS Checker has mismatched replicas"
+            description: "Desired replicas do not match ready replicas for 10 minutes."
+{{- end }}

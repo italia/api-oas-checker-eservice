@@ -1,4 +1,4 @@
-{{- if .Values.rulesetCache.enabled }}
+{{- if and .Values.rulesetCache.enabled .Values.rulesetCache.persistence }}
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:

@@ -51,6 +51,9 @@ RULESET_VERSION = os.getenv("RULESET_VERSION", "latest")  # "latest" or specific
 RULESET_PATH = os.getenv("RULESET_PATH", str(DATA_DIR / "rulesets"))
 RULESET_AUTO_UPDATE = os.getenv("RULESET_AUTO_UPDATE", "true").lower() == "true"
 
+# OpenAPI schema generation on startup (disable in production with readOnlyRootFilesystem)
+OPENAPI_GENERATE_ON_STARTUP = os.getenv("OPENAPI_GENERATE_ON_STARTUP", "true").lower() == "true"
+
 # JWT Authentication
 JWT_ENABLED = os.getenv("JWT_ENABLED", "true").lower() == "true"  # Disable in local/dev
 

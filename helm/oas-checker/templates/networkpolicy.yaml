@@ -1,0 +1,188 @@
+{{- if .Values.networkPolicy.enabled }}
+---
+# E-Service NetworkPolicy
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "oas-checker.fullname" . }}-eservice
+  labels:
+    {{- include "oas-checker.eservice.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "oas-checker.eservice.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow from ingress controller
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.ingressNamespaceSelector | nindent 14 }}
+      ports:
+        - port: {{ .Values.eservice.service.port }}
+          protocol: TCP
+    # Allow callback from worker pods
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: worker
+      ports:
+        - port: {{ .Values.eservice.service.port }}
+          protocol: TCP
+  egress:
+    # DNS resolution
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # To worker (Knative or Deployment)
+    {{- if ne .Values.worker.mode "external" }}
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: worker
+      ports:
+        {{- if eq .Values.worker.mode "knative" }}
+        - port: {{ .Values.worker.knative.containerPort }}
+          protocol: TCP
+        {{- else }}
+        - port: {{ .Values.worker.service.port }}
+          protocol: TCP
+        {{- end }}
+    # Knative system components (activator, ingress)
+    {{- if eq .Values.worker.mode "knative" }}
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: knative-serving
+      ports:
+        - port: 8012
+          protocol: TCP
+        - port: 8013
+          protocol: TCP
+        - port: 80
+          protocol: TCP
+        - port: 443
+          protocol: TCP
+    {{- end }}
+    {{- end }}
+    # To external database (port 5432)
+    - ports:
+        - port: 5432
+          protocol: TCP
+      {{- if .Values.networkPolicy.externalDatabaseCidr }}
+      to:
+        - ipBlock:
+            cidr: {{ .Values.networkPolicy.externalDatabaseCidr }}
+      {{- end }}
+    # To GitHub API for ruleset downloads (HTTPS)
+    {{- if .Values.networkPolicy.allowExternalHttps }}
+    - ports:
+        - port: 443
+          protocol: TCP
+    {{- end }}
+---
+# Worker NetworkPolicy (only when not external)
+{{- if ne .Values.worker.mode "external" }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "oas-checker.fullname" . }}-worker
+  labels:
+    {{- include "oas-checker.worker.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "oas-checker.worker.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow from eservice pods
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: eservice
+      ports:
+        {{- if eq .Values.worker.mode "knative" }}
+        - port: {{ .Values.worker.knative.containerPort }}
+          protocol: TCP
+        {{- else }}
+        - port: {{ .Values.worker.service.port }}
+          protocol: TCP
+        {{- end }}
+    {{- if eq .Values.worker.mode "knative" }}
+    # Allow from Knative system (activator, ingress-gateway)
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: knative-serving
+      ports:
+        - port: {{ .Values.worker.knative.containerPort }}
+          protocol: TCP
+        - port: 8012
+          protocol: TCP
+    {{- end }}
+  egress:
+    # DNS resolution
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # Callback to eservice
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: eservice
+      ports:
+        - port: {{ .Values.eservice.service.port }}
+          protocol: TCP
+{{- end }}
+---
+# GovWay NetworkPolicy (only when enabled)
+{{- if .Values.govway.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "oas-checker.fullname" . }}-govway
+  labels:
+    {{- include "oas-checker.govway.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "oas-checker.govway.selectorLabels" . | nindent 6 }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    # Allow from ingress controller
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              {{- toYaml .Values.networkPolicy.ingressNamespaceSelector | nindent 14 }}
+      ports:
+        - port: {{ .Values.govway.service.ports.http }}
+          protocol: TCP
+        - port: {{ .Values.govway.service.ports.https }}
+          protocol: TCP
+  egress:
+    # DNS resolution
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # To eservice
+    - to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: eservice
+      ports:
+        - port: {{ .Values.eservice.service.port }}
+          protocol: TCP
+{{- end }}
+{{- end }}

@@ -25,6 +25,10 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- with .Values.worker.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: worker
           image: {{ include "oas-checker.worker.image" . }}
@@ -51,6 +55,14 @@ spec:
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}
+          {{- with .Values.worker.containerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.worker.startupProbe }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- with .Values.worker.livenessProbe }}
           livenessProbe:
             {{- toYaml . | nindent 12 }}
@@ -64,15 +76,25 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           volumeMounts:
+            - name: tmp
+              mountPath: /tmp
             {{- if .Values.rulesetCache.enabled }}
             - name: ruleset-cache
               mountPath: /home/site/wwwroot/data/rulesets
             {{- end }}
       volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
         {{- if .Values.rulesetCache.enabled }}
         - name: ruleset-cache
+          {{- if .Values.rulesetCache.persistence }}
           persistentVolumeClaim:
             claimName: {{ include "oas-checker.rulesetCachePvcName" . }}
+          {{- else }}
+          emptyDir:
+            sizeLimit: {{ .Values.rulesetCache.size }}
+          {{- end }}
         {{- end }}
       {{- with .Values.worker.nodeSelector }}
       nodeSelector:

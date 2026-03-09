@@ -5,7 +5,9 @@ metadata:
   labels:
     {{- include "oas-checker.eservice.labels" . | nindent 4 }}
 spec:
+  {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.eservice.replicaCount }}
+  {{- end }}
   selector:
     matchLabels:
       {{- include "oas-checker.eservice.selectorLabels" . | nindent 6 }}
@@ -53,6 +55,10 @@ spec:
           securityContext:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+          {{- with .Values.eservice.startupProbe }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- with .Values.eservice.livenessProbe }}
           livenessProbe:
             {{- toYaml . | nindent 12 }}
@@ -66,15 +72,25 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           volumeMounts:
+            - name: tmp
+              mountPath: /tmp
             {{- if .Values.rulesetCache.enabled }}
             - name: ruleset-cache
               mountPath: /app/data/rulesets
             {{- end }}
       volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
         {{- if .Values.rulesetCache.enabled }}
         - name: ruleset-cache
+          {{- if .Values.rulesetCache.persistence }}
           persistentVolumeClaim:
             claimName: {{ include "oas-checker.rulesetCachePvcName" . }}
+          {{- else }}
+          emptyDir:
+            sizeLimit: {{ .Values.rulesetCache.size }}
+          {{- end }}
         {{- end }}
       {{- with .Values.eservice.nodeSelector }}
       nodeSelector:

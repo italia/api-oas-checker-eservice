@@ -20,6 +20,10 @@ spec:
         {{- include "oas-checker.govway.selectorLabels" . | nindent 8 }}
     spec:
       serviceAccountName: {{ include "oas-checker.serviceAccountName" . }}
+      {{- with .Values.govway.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       containers:
         - name: govway
           image: "{{ .Values.govway.image.repository }}:{{ .Values.govway.image.tag }}"
@@ -43,10 +47,21 @@ spec:
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}
+          {{- with .Values.govway.containerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- with .Values.govway.resources }}
           resources:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 256Mi
       {{- with .Values.govway.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
