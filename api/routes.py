@@ -32,7 +32,7 @@ PROBLEM_RESPONSES = {
             "application/problem+json": {
                 "schema": {"$ref": "#/components/schemas/Problem"},
                 "example": {
-                    "type": "http://localhost:8000/problems/bad-request",
+                    "type": "https://api-oas-checker.example.com/problems/bad-request",
                     "title": "Bad Request",
                     "status": 400,
                     "detail": "File must be YAML or JSON format",
@@ -48,7 +48,7 @@ PROBLEM_RESPONSES = {
             "application/problem+json": {
                 "schema": {"$ref": "#/components/schemas/Problem"},
                 "example": {
-                    "type": "http://localhost:8000/problems/not-found",
+                    "type": "https://api-oas-checker.example.com/problems/not-found",
                     "title": "Not Found",
                     "status": 404,
                     "detail": "Validation abc123 not found",
@@ -64,7 +64,7 @@ PROBLEM_RESPONSES = {
             "application/problem+json": {
                 "schema": {"$ref": "#/components/schemas/Problem"},
                 "example": {
-                    "type": "http://localhost:8000/problems/validation-error",
+                    "type": "https://api-oas-checker.example.com/problems/validation-error",
                     "title": "Validation Error",
                     "status": 422,
                     "detail": "Request validation failed: file -> field required",
@@ -80,7 +80,7 @@ PROBLEM_RESPONSES = {
             "application/problem+json": {
                 "schema": {"$ref": "#/components/schemas/Problem"},
                 "example": {
-                    "type": "http://localhost:8000/problems/rate-limit-exceeded",
+                    "type": "https://api-oas-checker.example.com/problems/rate-limit-exceeded",
                     "title": "Too Many Requests",
                     "status": 429,
                     "detail": "Rate limit exceeded. Maximum 10 requests per 60s.",
@@ -114,7 +114,7 @@ PROBLEM_RESPONSES = {
             "application/problem+json": {
                 "schema": {"$ref": "#/components/schemas/Problem"},
                 "example": {
-                    "type": "http://localhost:8000/problems/internal-error",
+                    "type": "https://api-oas-checker.example.com/problems/internal-error",
                     "title": "Internal Server Error",
                     "status": 500,
                     "detail": "Validation failed: unexpected error",

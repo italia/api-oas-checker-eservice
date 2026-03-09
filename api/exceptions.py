@@ -31,7 +31,7 @@ def create_problem_details(
     """
     # Build type URI
     if type_suffix:
-        problem_type = f"{config.CALLBACK_BASE_URL}/problems/{type_suffix}"
+        problem_type = f"{config.OPENAPI_SERVER_URL}/problems/{type_suffix}"
     else:
         problem_type = "about:blank"
 
