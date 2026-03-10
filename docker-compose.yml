@@ -37,7 +37,7 @@ services:
       ESERVICE_PORT: 8000
       DATABASE_URL: postgresql://oaschecker:oaschecker_dev_password@postgres:${POSTGRES_PORT_INTERNAL:-5432}/oaschecker
       FUNCTION_TYPE: azure-local
-      FUNCTION_URL: http://azure-function:${FUNCTION_PORT_INTERNAL:-80}/api/validate
+      FUNCTION_URL: http://azure-function:${FUNCTION_PORT_INTERNAL:-8080}/api/validate
       CALLBACK_BASE_URL: http://eservice:8000
       RULESET_REPO: italia/api-oas-checker-rules
       RULESET_VERSION: latest
@@ -72,18 +72,18 @@ services:
     hostname: azure-function
     restart: unless-stopped
     ports:
-      - "${FUNCTION_PORT:-7071}:${FUNCTION_PORT_INTERNAL:-80}"
+      - "${FUNCTION_PORT:-7071}:${FUNCTION_PORT_INTERNAL:-8080}"
     environment:
       AzureWebJobsScriptRoot: /home/site/wwwroot
       FUNCTIONS_WORKER_RUNTIME: python
       CALLBACK_SECRET: "dev-secret-change-in-production"
       RULESET_FUNCTIONS_PATH: /home/site/wwwroot/data/rulesets/functions
-      ASPNETCORE_URLS: "http://+:${FUNCTION_PORT_INTERNAL:-80}"
+      ASPNETCORE_URLS: "http://+:${FUNCTION_PORT_INTERNAL:-8080}"
     volumes:
       - function-data:/home/site/wwwroot/data
       - ruleset-cache:/home/site/wwwroot/data/rulesets
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${FUNCTION_PORT_INTERNAL:-80}/"]
+      test: ["CMD", "curl", "-f", "http://localhost:${FUNCTION_PORT_INTERNAL:-8080}/"]
       interval: 30s
       timeout: 5s
       retries: 3
