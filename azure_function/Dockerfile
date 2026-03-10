@@ -52,7 +52,7 @@ RUN mkdir -p /home/site/wwwroot/data/rulesets && \
     useradd -m -u 1000 funcuser && \
     chown -R funcuser:funcuser /home/site/wwwroot
 
-USER funcuser
+USER 1000
 
 EXPOSE 8080
 
