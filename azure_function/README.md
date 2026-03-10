@@ -1,93 +1,57 @@
-# Azure Function - ProcessValidation
+# Worker Spectral (Azure Function)
 
-Questa Azure Function funge da worker asincrono per la validazione di documenti OpenAPI (Swagger) utilizzando la CLI ufficiale di [Spectral](https://rules.stoplight.io/).
+Worker asincrono per la validazione OpenAPI con [Spectral CLI](https://stoplight.io/spectral). Basato sul runtime Azure Functions ma eseguibile ovunque come container HTTP (Knative, Kubernetes, Docker).
 
-## Architettura
+## Flusso
 
-La funzione è implementata in Python ed è progettata per essere eseguita in un ambiente containerizzato (Azure Functions on Container) o come funzione standard. 
+```mermaid
+sequenceDiagram
+    eservice->>worker: POST /api/ProcessValidation
+    worker->>worker: Spectral CLI (validazione)
+    worker->>eservice: POST callback_url (HMAC signed)
+```
 
-### Caratteristiche principali:
-- **Stateless**: Non richiede storage persistente per l'elaborazione.
-- **Asincrona**: Risponde immediatamente al chiamante e invia i risultati tramite una callback HTTP.
-- **Sicura**: Implementa la firma HMAC-SHA256 per le notifiche di callback.
-- **Estensibile**: Supporta ruleset Spectral personalizzati e funzioni custom.
+Il worker riceve il contenuto del file OpenAPI, esegue Spectral, e invia il report all'eservice via callback firmata HMAC-SHA256.
 
-## Requisiti
+## API
 
-- **Python 3.11**
-- **Node.js 20+** (per Spectral CLI)
-- **Spectral CLI** (`@stoplight/spectral-cli`)
+**POST `/api/ProcessValidation`**
 
-## Configurazione
-
-Le seguenti variabili d'ambiente devono essere configurate:
-
-| Variabile | Descrizione | Default |
-|-----------|-------------|---------|
-| `CALLBACK_SECRET` | Chiave segreta per la generazione della firma HMAC nelle callback. | (obbligatoria in prod) |
-| `RULESET_FUNCTIONS_PATH` | Percorso locale alle funzioni Spectral personalizzate. | `/home/site/wwwroot/data/rulesets/functions` |
-| `FUNCTIONS_WORKER_RUNTIME` | Runtime della funzione. | `python` |
-
-## API Interface
-
-### POST `/api/ProcessValidation`
-
-Avvia un processo di validazione.
-
-#### Payload (JSON):
 ```json
 {
-  "validation_id": "uuid-string",
-  "file_content": "contenuto del file openapi (YAML o JSON)",
-  "callback_url": "https://your-service.com/callback",
+  "validation_id": "uuid",
+  "file_content": "openapi: 3.0.0 ...",
+  "callback_url": "http://eservice:8000/internal/callback",
   "ruleset_name": "default",
-  "ruleset_content": "estensione del ruleset spectral (opzionale)",
+  "ruleset_content": "extends: spectral:oas ...",
   "errors_only": false
 }
 ```
 
-#### Risposta (200 OK):
-```json
-{
-  "validation_id": "uuid-string",
-  "status": "success",
-  "message": "Validation completed and callback initiated"
-}
-```
+La callback include gli header `X-Signature` (HMAC-SHA256) e `X-Timestamp`.
 
-### Callback
+## Configurazione
 
-I risultati vengono inviati all'URL specificato in `callback_url`. La richiesta include gli header:
-- `X-Signature`: Firma HMAC-SHA256 del payload.
-- `X-Timestamp`: Timestamp utilizzato per la firma.
+| Variabile | Descrizione | Default |
+|---|---|---|
+| `CALLBACK_SECRET` | Chiave HMAC per firmare le callback | (obbligatoria) |
+| `RULESET_FUNCTIONS_PATH` | Path alle funzioni Spectral custom | `/home/site/wwwroot/data/rulesets/functions` |
+| `ASPNETCORE_URLS` | Porta di ascolto | `http://+:8080` |
 
-## Sviluppo Locale
+## Container
 
-1. Installa le dipendenze Python:
-   ```bash
-   pip install -r requirements.txt
-   ```
-2. Installa Spectral CLI:
-   ```bash
-   npm install -g @stoplight/spectral-cli
-   ```
-3. Avvia la funzione:
-   ```bash
-   func start
-   ```
-
-## Docker
-
-È disponibile un `Dockerfile` ottimizzato per il deployment su Azure Container Apps o Azure Functions on Container.
+Il container gira come utente non-root (UID 1000) sulla porta 8080.
 
 ```bash
-docker build -t oas-checker-function .
-docker run -p 7071:80 -e CALLBACK_SECRET=tuasegreta oas-checker-function
+docker build -f azure_function/Dockerfile -t oas-checker-function .
+docker run -p 8080:8080 -e CALLBACK_SECRET=secret oas-checker-function
 ```
 
-## Struttura del Progetto
+## Struttura
 
-- `ProcessValidation/`: Entry point della Azure Function.
-- `shared/`: Logica condivisa (validazione, sicurezza, utility).
-- `Dockerfile`: Configurazione per la containerizzazione.
-- `host.json`: Configurazione globale dell'host Azure Functions.
+```
+ProcessValidation/    Entry point Azure Function
+shared/               Validatore Spectral, HMAC, utility (condiviso con eservice)
+Dockerfile            Container image (~1GB, include Node.js + Spectral CLI)
+host.json             Configurazione runtime Azure Functions
+```

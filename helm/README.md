@@ -114,7 +114,7 @@ graph LR
     
     subgraph deployMode ["worker.mode = deployment"]
         dep[Deployment]
-        svc[Service :80]
+        svc[Service :8080]
         dep --> dp1[Pod 1]
         dep --> dpN["Pod N (fisso)"]
         svc --> dep
@@ -270,7 +270,7 @@ govway:
 
 Il container del worker usa come base image il runtime Azure Functions (`mcr.microsoft.com/azure-functions/python:4-python3.11`), ma funziona perfettamente su Knative perche':
 
-1. E' un container HTTP standard che ascolta sulla porta 80
+1. E' un container HTTP standard che ascolta sulla porta 8080
 2. Espone `POST /api/validate` e risponde a health check su `/`
 3. Non dipende da infrastruttura Azure (come dimostrato dal docker-compose)
 
@@ -394,7 +394,7 @@ graph LR
     internet((Internet))
     ingress["Ingress NGINX"]
     eservice["eservice :8000"]
-    worker["worker :80"]
+    worker["worker :8080"]
     db["PostgreSQL :5432"]
     github["GitHub API :443"]
     dns["DNS :53"]
@@ -411,10 +411,10 @@ graph LR
 
 **eservice:**
 - Ingress: da ingress-nginx (porta 8000), da worker (callback porta 8000)
-- Egress: verso worker (porta 80), verso DB (porta 5432), verso GitHub API (porta 443), DNS
+- Egress: verso worker (porta 8080), verso DB (porta 5432), verso GitHub API (porta 443), DNS
 
 **worker:**
-- Ingress: da eservice (porta 80), da Knative system (se mode=knative)
+- Ingress: da eservice (porta 8080), da Knative system (se mode=knative)
 - Egress: verso eservice (callback porta 8000), DNS
 
 **govway** (se abilitato):

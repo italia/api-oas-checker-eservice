@@ -1,110 +1,123 @@
 # OAS Checker E-Service
 
-Microservizio per la validazione di file OpenAPI tramite Spectral, progettato per essere scalabile, sicuro e conforme alle linee guida ModI della Pubblica Amministrazione.
+Servizio di validazione OpenAPI per la Pubblica Amministrazione italiana. Riceve file OpenAPI (YAML/JSON), li valida con [Spectral](https://stoplight.io/spectral) e restituisce un report dettagliato.
 
-## Caratteristiche Principali
+## Architettura
 
-- **Architettura Storage-less**: Tutti i file e i report sono persistiti direttamente in PostgreSQL (campi TEXT e JSONB), garantendo semplicità e velocità di accesso.
-- **Asincronia Nativa**: Gestione delle richieste tramite worker asincroni (Azure Function o Mock locale) con risposta immediata `202 Accepted`.
-- **OpenAPI Compliance**: Generazione automatica di schemi OpenAPI 3.1.0 e 3.0.3 per garantire massima compatibilità con gli strumenti della PA (es. validatore ModI).
-- **Monitoring & Logging**: Integrazione con Loki via structured JSON logging.
-- **Sicurezza Enterprise**: Autenticazione JWT e protezione delle callback tramite firma HMAC-SHA256.
-- **High Performance**: Connection pooling nativo per PostgreSQL via asyncpg.
+```mermaid
+graph LR
+    client([Client]) -->|POST /oas/validate| eservice
+    eservice -->|async| worker
+    worker -->|callback HMAC| eservice
+    eservice <--> db[(PostgreSQL)]
+    client -->|GET /oas/report/id| eservice
 
-## Flusso Operativo
+    subgraph Kubernetes
+        eservice["eservice<br/>FastAPI"]
+        worker["worker<br/>Spectral CLI<br/>(Knative)"]
+    end
+```
 
-1.  **Invio**: Caricamento di un file OpenAPI tramite `POST /oas/validate`.
-2.  **Persistenza**: Salvataggio del contenuto del file nel database e generazione di un `validation_id`.
-3.  **Validazione**: Invocazione asincrona della Validation Function con invio del contenuto via HTTP.
-4.  **Esito**: Esecuzione di Spectral da parte della Function e invio del report JSON all'E-Service via callback.
-5.  **Recupero**: Consultazione del report finale tramite `GET /oas/report/{id}`.
+Il flusso e' asincrono: il client invia un file, riceve subito un `202 Accepted` con `validation_id`, e recupera il report quando pronto.
+
+```mermaid
+sequenceDiagram
+    Client->>eservice: POST /oas/validate (file)
+    eservice->>DB: Salva (PENDING)
+    eservice->>worker: POST /api/validate
+    eservice-->>Client: 202 + validation_id
+    worker->>worker: Spectral CLI
+    worker->>eservice: POST /callback (HMAC)
+    eservice->>DB: Aggiorna (COMPLETED)
+    Client->>eservice: GET /oas/report/{id}
+    eservice-->>Client: 200 Report
+```
+
+## Componenti
+
+| Componente | Tecnologia | Descrizione |
+|---|---|---|
+| **eservice** | Python/FastAPI | API REST, orchestrazione, persistenza |
+| **worker** | Azure Functions runtime + Spectral CLI | Esegue la validazione, restituisce il report via callback |
+| **database** | PostgreSQL | File, report e metadati in campi TEXT/JSONB |
+
+Il worker puo' girare come Knative Service (scale-to-zero), Deployment classico, o Azure Function esterna. Vedi [helm/README.md](helm/README.md).
+
+## Quick start
+
+### Docker Compose (sviluppo)
+
+```bash
+./run-oas.sh
+```
+
+Avvia eservice + worker mock + PostgreSQL. L'API e' disponibile su `http://localhost:8000`.
+
+Opzioni: `--mode host`, `--port-api 8080`, `--port-func 9090`, `--port-db 15432`.
+
+### Kubernetes (produzione)
+
+```bash
+helm upgrade --install oas-checker oci://ghcr.io/italia/api-oas-checker-eservice/charts/oas-checker \
+  -n api-oas-checker --create-namespace \
+  -f values.yaml
+```
+
+Documentazione completa del chart Helm: [helm/README.md](helm/README.md).
+
+## Sviluppo
+
+```bash
+# Setup
+scripts/setup.sh
+
+# Test (unit + logic, senza PostgreSQL)
+pytest -v -m "not integration"
+
+# Test E2E
+pytest -v tests/test_e2e.py
+```
+
+## CI/CD
+
+| Evento | Pipeline | Azione |
+|---|---|---|
+| Push/PR su `main` | CI | Test + Helm lint |
+| Tag `v*` | Release | Test, build immagini Docker (eservice + worker), push su GHCR, package e push Helm chart OCI |
+
+Le immagini sono pubblicate su `ghcr.io/italia/oas-checker-eservice` e `ghcr.io/italia/oas-checker-function`.
+
+## Sicurezza
+
+- **JWT**: Autenticazione delle richieste API ([docs/JWT_AUTH.md](docs/JWT_AUTH.md))
+- **HMAC-SHA256**: Firma delle callback worker -> eservice ([docs/HMAC_CALLBACK.md](docs/HMAC_CALLBACK.md))
+- **Rate limiting**: Per endpoint, configurabile ([docs/RATE_LIMITING.md](docs/RATE_LIMITING.md))
+- **Kubernetes**: Container non-root, filesystem read-only, NetworkPolicy, seccomp ([helm/README.md](helm/README.md#sicurezza))
+
+## Struttura del progetto
+
+```
+api/              Endpoint FastAPI, auth, rate limiting, exception handlers
+services/         Orchestrazione validazione, client HTTP, gestione ruleset
+models/           Schema Pydantic e modelli dati
+database/         Repository PostgreSQL (asyncpg)
+shared/           Codice condiviso tra eservice e worker (HMAC, validatore)
+azure_function/   Worker Spectral (Dockerfile + Azure Functions entry point)
+function_mock/    Worker mock per sviluppo locale
+helm/             Chart Helm per deploy Kubernetes
+scripts/          Setup, avvio locale, generazione OpenAPI, utility
+tests/            Unit, integration, E2E
+docs/             Documentazione tecnica
+```
 
 ## Documentazione
 
-Tutta la documentazione tecnica è disponibile nella cartella `docs/`:
-
-### 🚀 Guide Rapide
-- [Guida Rapida](docs/QUICKSTART.md) - Per l'avvio rapido con Docker.
-- [Configurazione](docs/CONFIGURATION.md) - Lista variabili d'ambiente e ordine di precedenza.
-- [Infrastruttura GovWay](docs/GOVWAY_README.md) - Dettagli sull'integrazione con il gateway.
-
-### 🛠️ Architettura e Dati
-- [Modello Dati](docs/DATA_MODEL.md) - Schema PostgreSQL e performance.
-- [Ciclo di Vita dei Dati](docs/FILE_LIFECYCLE.md) - Come vengono gestiti file e report.
-- [Gestione Ruleset](docs/RULESETS.md) - Download automatico e aggiornamento dei ruleset.
-- [Utilizzo OpenAPI](docs/OPENAPI_USAGE.md) - Dettagli sulla generazione degli schemi 3.1.0 e 3.0.3.
-
-### 🔐 Sicurezza e Qualità
-- [Autenticazione JWT](docs/JWT_AUTH.md) - Integrazione con PDND/GovWay.
-- [Sicurezza Callback (HMAC)](docs/HMAC_CALLBACK.md) - Protezione dell'integrità dei dati.
-- [Rate Limiting](docs/RATE_LIMITING.md) - Controllo della frequenza delle richieste.
-- [Suite di Test](tests/README.md) - Strategia di test, E2E e coverage.
-- [Piano di Test](docs/TEST_PLAN.md) - Casi di test e criteri di accettazione.
-- [Inventario Software](docs/SOFTWARE_INVENTORY.md) - Componenti e licenze.
-
-## Requisiti
-
-- **Python 3.11+**
-- **PostgreSQL**
-- **Docker & Docker Compose**
-
-## Deployment
-
-
-
-Il sistema può essere avviato in due modalità tramite lo script `run-oas.sh`:
-
-
-
-- **Modalità Bridge (Default)**: Utilizza la rete isolata di Docker. Ideale per ambienti di produzione o test standard.
-
-- **Modalità Host**: Condivide lo stack di rete dell'host. Utile per risolvere problemi di binding su sistemi dove le porte sono già parzialmente occupate o per integrazioni di rete particolari.
-
-
-
-### Avvio rapido con script
-
-
-
-```bash
-
-# Avvio standard (Bridge)
-
-./run-oas.sh
-
-
-
-# Avvio in modalità Host con porte personalizzate
-
-./run-oas.sh --mode host --port-api 8080 --port-func 9090 --port-db 15432
-
-```
-
-
-
-| Opzione | Descrizione | Default |
-|---------|-------------|---------|
-| `-m, --mode` | Modalità di rete (`bridge` o `host`) | `bridge` |
-| `-p, --port-api` | Porta per le API dell'e-service | `8000` |
-| `-f, --port-func` | Porta per la Azure Function | `7071` |
-| `-db, --port-db` | Porta per PostgreSQL | `15432` |
-
-
-
-## Sviluppo e Test
-
-
-
-```bash
-
-# Esecuzione dei test (Unit + Logic)
-
-pytest -v -m "not integration"
-
-
-
-# Esecuzione test End-to-End
-
-pytest -v tests/test_e2e.py
-
-```
+| Area | Documento |
+|---|---|
+| Avvio rapido | [docs/QUICKSTART.md](docs/QUICKSTART.md) |
+| Configurazione (env vars) | [docs/CONFIGURATION.md](docs/CONFIGURATION.md) |
+| Modello dati PostgreSQL | [docs/DATA_MODEL.md](docs/DATA_MODEL.md) |
+| Gestione ruleset | [docs/RULESETS.md](docs/RULESETS.md) |
+| Schema OpenAPI | [docs/OPENAPI_USAGE.md](docs/OPENAPI_USAGE.md) |
+| Deploy Kubernetes | [helm/README.md](helm/README.md) |
+| Test | [tests/README.md](tests/README.md) |
