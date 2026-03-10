@@ -349,13 +349,13 @@ Il chart applica le best practice di sicurezza Kubernetes per tutti i container.
 
 | Impostazione | eservice | worker (Knative) | worker (Deployment) | govway |
 |---|---|---|---|---|
-| `runAsNonRoot` | true (UID 1000) | false * | true (UID 1000) | false (upstream) |
+| `runAsNonRoot` | true (UID 1000) | true (UID 1000) | true (UID 1000) | false (upstream) |
 | `readOnlyRootFilesystem` | true | false * | true | false (upstream) |
 | `allowPrivilegeEscalation` | false | false | false | false |
 | `capabilities.drop` | ALL | N/A ** | ALL | ALL |
 | `seccompProfile` | RuntimeDefault | N/A ** | RuntimeDefault | RuntimeDefault |
 
-\* Il worker Azure Functions ascolta sulla porta 80 (richiede root) e scrive in directory interne del runtime. Per un hardening completo, ricostruire l'immagine per ascoltare su porta > 1024 e girare come non-root.
+\* Il runtime Azure Functions scrive in directory interne (`/home/site/wwwroot`, `/tmp`). Il container ascolta sulla porta 8080 (non privilegiata) e gira come `funcuser` (UID 1000).
 
 \*\* Knative Serving non permette `capabilities.add` ne' `capabilities.drop` nel `securityContext` dei container.
 

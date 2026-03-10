@@ -118,7 +118,7 @@ worker:
 
   service:
     type: ClusterIP
-    port: 80
+    port: 8080
 
   resources:
     requests:
@@ -142,12 +142,11 @@ worker:
     runAsNonRoot: true
 
   # NOTE: Knative does not allow capabilities.add/drop in securityContext.
-  # When mode=knative, avoid setting capabilities here.
-  # When mode=deployment, you can add capabilities.drop: [ALL].
+  # When mode=knative, do not set capabilities here.
   containerSecurityContext:
     allowPrivilegeEscalation: false
     readOnlyRootFilesystem: false
-    runAsNonRoot: false
+    runAsNonRoot: true
 
   # Knative-specific settings (only used when mode=knative)
   knative:
@@ -156,7 +155,7 @@ worker:
     concurrencyTarget: 10
     concurrencyLimit: 0  # 0 = unlimited
     scaleDownDelay: "60s"
-    containerPort: 80
+    containerPort: 8080
 
   # Probes (used in deployment mode; Knative manages its own)
   startupProbe:

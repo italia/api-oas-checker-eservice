@@ -44,7 +44,8 @@ COPY azure_function/ProcessValidation/ /home/site/wwwroot/ProcessValidation/
 
 # Environment variables di default
 ENV FUNCTIONS_WORKER_RUNTIME=python \
-    PYTHON_THREADPOOL_THREAD_COUNT=4
+    PYTHON_THREADPOOL_THREAD_COUNT=4 \
+    ASPNETCORE_URLS=http://+:8080
 
 # Crea directory per storage/cache and set permissions for non-root user
 RUN mkdir -p /home/site/wwwroot/data/rulesets && \
@@ -53,8 +54,8 @@ RUN mkdir -p /home/site/wwwroot/data/rulesets && \
 
 USER funcuser
 
-EXPOSE 80
+EXPOSE 8080
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:80/ || exit 1
+    CMD curl -f http://localhost:8080/ || exit 1
