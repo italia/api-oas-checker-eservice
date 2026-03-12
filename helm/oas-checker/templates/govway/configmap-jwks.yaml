@@ -1,0 +1,11 @@
+{{- if and .Values.govway.enabled .Values.govway.jwks.data }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "oas-checker.fullname" . }}-govway-jwks
+  labels:
+    {{- include "oas-checker.govway.labels" . | nindent 4 }}
+data:
+  jwks.json: |
+    {{- .Values.govway.jwks.data | nindent 4 }}
+{{- end }}

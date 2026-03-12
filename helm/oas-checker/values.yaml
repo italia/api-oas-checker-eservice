@@ -188,7 +188,7 @@ govway:
 
   image:
     repository: linkitaly/govway
-    tag: latest
+    tag: "3.4.2"
     pullPolicy: IfNotPresent
 
   service:
@@ -201,14 +201,57 @@ govway:
   resources:
     requests:
       cpu: 200m
-      memory: 512Mi
+      memory: 1Gi
     limits:
       cpu: "1"
-      memory: 1Gi
+      memory: 2Gi
 
   extraEnv: {}
   entityName: ente-example
   popDbSkip: "false"
+
+  # Database configuration (external PostgreSQL)
+  database:
+    type: postgresql
+    server: ""       # host:port
+    name: govway
+    user: govway
+    password: ""
+
+  # JWKS file for JWT validation (mounted at /etc/govway/jwks.json)
+  jwks:
+    data: ""  # JSON content of JWKS file; leave empty to skip mounting
+
+  # Persistence for GovWay configuration (/etc/govway)
+  persistence:
+    enabled: true
+    size: 2Gi
+    storageClass: ""
+    accessModes:
+      - ReadWriteOnce
+
+  # Probes (GovWay/Tomcat needs longer startup)
+  startupProbe:
+    httpGet:
+      path: /govway/check
+      port: http
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    failureThreshold: 30
+  livenessProbe:
+    httpGet:
+      path: /govway/check
+      port: http
+    periodSeconds: 30
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /govway/check
+      port: http
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
 
   nodeSelector: {}
   tolerations: []

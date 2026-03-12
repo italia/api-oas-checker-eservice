@@ -15,7 +15,17 @@ spec:
     - Ingress
     - Egress
   ingress:
-    # Allow from ingress controller
+    {{- if .Values.govway.enabled }}
+    # Allow from GovWay pods (GovWay is the public entry point)
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: govway
+      ports:
+        - port: {{ .Values.eservice.service.port }}
+          protocol: TCP
+    {{- else }}
+    # Allow from ingress controller (direct exposure, no GovWay)
     - from:
         - namespaceSelector:
             matchLabels:
@@ -23,6 +33,7 @@ spec:
       ports:
         - port: {{ .Values.eservice.service.port }}
           protocol: TCP
+    {{- end }}
     # Allow callback from worker pods
     - from:
         - podSelector:
@@ -169,6 +180,8 @@ spec:
           protocol: TCP
         - port: {{ .Values.govway.service.ports.https }}
           protocol: TCP
+        - port: {{ .Values.govway.service.ports.management }}
+          protocol: TCP
   egress:
     # DNS resolution
     - ports:
@@ -184,5 +197,18 @@ spec:
       ports:
         - port: {{ .Values.eservice.service.port }}
           protocol: TCP
+    # To external HTTPS (PDND JWKS endpoints for JWT validation)
+    - ports:
+        - port: 443
+          protocol: TCP
+    # To external database (GovWay config/tracing DB)
+    - ports:
+        - port: 5432
+          protocol: TCP
+      {{- if .Values.networkPolicy.externalDatabaseCidr }}
+      to:
+        - ipBlock:
+            cidr: {{ .Values.networkPolicy.externalDatabaseCidr }}
+      {{- end }}
 {{- end }}
 {{- end }}

@@ -1,0 +1,19 @@
+{{- if and .Values.govway.enabled .Values.govway.persistence.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "oas-checker.fullname" . }}-govway-config
+  labels:
+    {{- include "oas-checker.govway.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    {{- range .Values.govway.persistence.accessModes }}
+    - {{ . }}
+    {{- end }}
+  {{- if .Values.govway.persistence.storageClass }}
+  storageClassName: {{ .Values.govway.persistence.storageClass }}
+  {{- end }}
+  resources:
+    requests:
+      storage: {{ .Values.govway.persistence.size }}
+{{- end }}

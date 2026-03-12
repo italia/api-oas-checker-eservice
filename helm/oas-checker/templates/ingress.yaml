@@ -37,6 +37,10 @@ spec:
                 name: {{ include "oas-checker.fullname" $ }}-govway
                 port:
                   number: {{ $.Values.govway.service.ports.http }}
+                {{- else if eq (default "eservice" .service) "govway-management" }}
+                name: {{ include "oas-checker.fullname" $ }}-govway
+                port:
+                  number: {{ $.Values.govway.service.ports.management }}
                 {{- else }}
                 name: {{ include "oas-checker.fullname" $ }}-eservice
                 port:

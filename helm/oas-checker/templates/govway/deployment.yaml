@@ -7,6 +7,8 @@ metadata:
     {{- include "oas-checker.govway.labels" . | nindent 4 }}
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       {{- include "oas-checker.govway.selectorLabels" . | nindent 6 }}
@@ -43,10 +45,39 @@ spec:
               value: {{ .Values.govway.entityName | quote }}
             - name: GOVWAY_POP_DB_SKIP
               value: {{ .Values.govway.popDbSkip | quote }}
+            - name: GOVWAY_DB_TYPE
+              value: {{ .Values.govway.database.type | quote }}
+            {{- if ne .Values.govway.database.type "hsql" }}
+            - name: GOVWAY_DB_SERVER
+              value: {{ .Values.govway.database.server | quote }}
+            - name: GOVWAY_DB_NAME
+              value: {{ .Values.govway.database.name | quote }}
+            - name: GOVWAY_DB_USER
+              value: {{ .Values.govway.database.user | quote }}
+            - name: GOVWAY_DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "oas-checker.fullname" . }}-govway
+                  key: GOVWAY_DB_PASSWORD
+            {{- end }}
+            - name: TZ
+              value: "Europe/Rome"
             {{- range $key, $value := .Values.govway.extraEnv }}
             - name: {{ $key }}
               value: {{ $value | quote }}
             {{- end }}
+          {{- with .Values.govway.startupProbe }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.govway.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.govway.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
           {{- with .Values.govway.containerSecurityContext }}
           securityContext:
             {{- toYaml . | nindent 12 }}
@@ -58,10 +89,35 @@ spec:
           volumeMounts:
             - name: tmp
               mountPath: /tmp
+            - name: govway-config
+              mountPath: /etc/govway
+            - name: govway-log
+              mountPath: /var/log/govway
+            {{- if .Values.govway.jwks.data }}
+            - name: govway-jwks
+              mountPath: /etc/govway/jwks.json
+              subPath: jwks.json
+              readOnly: true
+            {{- end }}
       volumes:
         - name: tmp
           emptyDir:
             sizeLimit: 256Mi
+        - name: govway-config
+          {{- if .Values.govway.persistence.enabled }}
+          persistentVolumeClaim:
+            claimName: {{ include "oas-checker.fullname" . }}-govway-config
+          {{- else }}
+          emptyDir: {}
+          {{- end }}
+        - name: govway-log
+          emptyDir:
+            sizeLimit: 512Mi
+        {{- if .Values.govway.jwks.data }}
+        - name: govway-jwks
+          configMap:
+            name: {{ include "oas-checker.fullname" . }}-govway-jwks
+        {{- end }}
       {{- with .Values.govway.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}

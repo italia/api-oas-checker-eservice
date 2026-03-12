@@ -69,13 +69,15 @@ services:
 
   # Govway
   govway:
-    image: linkitaly/govway:latest
+    image: linkitaly/govway:3.4.2
     container_name: govway-host
     network_mode: host
     restart: unless-stopped
     environment:
+      - GOVWAY_DB_TYPE=${GOVWAY_DB_TYPE:-hsql}
       - GOVWAY_DEFAULT_ENTITY_NAME=${GOVWAY_ENTITY_NAME:-ente-example}
       - GOVWAY_POP_DB_SKIP=${GOVWAY_POP_DB_SKIP:-false}
+      - TZ=Europe/Rome
     volumes:
       - ./govway/govway_conf:/etc/govway
       - ./govway/govway_log:/var/log/govway
