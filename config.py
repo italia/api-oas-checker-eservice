@@ -19,6 +19,12 @@ ESERVICE_PORT = int(os.getenv("ESERVICE_PORT", "8000"))
 # OpenAPI Server URL (for Swagger UI and API documentation)
 OPENAPI_SERVER_URL = os.getenv("OPENAPI_SERVER_URL", f"http://localhost:{ESERVICE_PORT}")
 
+# Base URL for Problem Details documentation links in OpenAPI
+PROBLEM_BASE_URL = os.getenv(
+    "PROBLEM_BASE_URL",
+    "https://github.com/italia/api-oas-checker-eservice/blob/main/docs/PROBLEMS.md#"
+)
+
 # Database configuration
 # PostgreSQL connection URL format: postgresql://user:password@host:port/database
 DATABASE_URL = os.getenv(

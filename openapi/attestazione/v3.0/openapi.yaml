@@ -1,0 +1,406 @@
+openapi: 3.0.3
+info:
+  title: OAS Checker e-service
+  description: OpenAPI validation service using Spectral
+  version: 1.0.0
+  x-summary: Servizio di validazione OpenAPI
+  termsOfService: https://github.com/italia/api-oas-checker-eservice/blob/main/README.MD
+  x-api-id: oas-checker-eservice
+  contact:
+    name: Dipartimento per la Trasformazione Digitale
+    url: https://github.com/italia/api-oas-checker-eservice
+  license:
+    name: EUPL 1.2
+    url: https://github.com/italia/api-oas-checker-eservice/blob/main/LICENSE
+servers:
+- url: https://att-api-oas-checker.innovazione.gov.it/govway/rest/in/DTD/api-oas-checker/v1
+  description: Attestazione
+paths:
+  /oas/validate:
+    post:
+      tags:
+      - Validation
+      summary: Start OpenAPI validation
+      description: Upload an OpenAPI file to validate with Spectral
+      operationId: validateOpenAPI
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Body_validateOpenAPI'
+        required: true
+      responses:
+        '202':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationResponse'
+        '400':
+          description: Bad Request - Invalid input
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                type: https://github.com/italia/api-oas-checker-eservice/blob/main/docs/PROBLEMS.md#bad-request
+                title: Bad Request
+                status: 400
+                detail: File must be YAML or JSON format
+                instance: /oas/validate
+        '422':
+          description: Validation Error - Request validation failed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                type: https://github.com/italia/api-oas-checker-eservice/blob/main/docs/PROBLEMS.md#validation-error
+                title: Validation Error
+                status: 422
+                detail: 'Request validation failed: file -> field required'
+                instance: /oas/validate
+        '429':
+          description: Too Many Requests - Rate limit exceeded
+          headers:
+            X-RateLimit-Limit:
+              description: Maximum number of requests allowed in the window
+              schema:
+                type: integer
+                format: int32
+            X-RateLimit-Remaining:
+              description: Number of requests remaining in the current window
+              schema:
+                type: integer
+                format: int32
+            X-RateLimit-Reset:
+              description: Seconds until the rate limit window resets
+              schema:
+                type: integer
+                format: int32
+            Retry-After:
+              description: Minimum seconds before retrying
+              schema:
+                type: integer
+                format: int32
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                type: https://github.com/italia/api-oas-checker-eservice/blob/main/docs/PROBLEMS.md#rate-limit-exceeded
+                title: Too Many Requests
+                status: 429
+                detail: Rate limit exceeded. Maximum 10 requests per 60s.
+                instance: /oas/validate
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                type: https://github.com/italia/api-oas-checker-eservice/blob/main/docs/PROBLEMS.md#internal-error
+                title: Internal Server Error
+                status: 500
+                detail: 'Validation failed: unexpected error'
+                instance: /oas/report/abc123
+  /oas/report/{validation_id}:
+    get:
+      tags:
+      - Validation
+      summary: Get validation report
+      description: Retrieve validation status and report
+      operationId: validationReport
+      parameters:
+      - name: validation_id
+        in: path
+        required: true
+        schema:
+          type: string
+          title: Validation Id
+      responses:
+        '200':
+          description: Validation report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReportResponse'
+        '404':
+          description: Not Found - Resource does not exist
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                type: https://github.com/italia/api-oas-checker-eservice/blob/main/docs/PROBLEMS.md#not-found
+                title: Not Found
+                status: 404
+                detail: Validation abc123 not found
+                instance: /oas/report/abc123
+        '422':
+          description: Validation Error - Request validation failed
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                type: https://github.com/italia/api-oas-checker-eservice/blob/main/docs/PROBLEMS.md#validation-error
+                title: Validation Error
+                status: 422
+                detail: 'Request validation failed: file -> field required'
+                instance: /oas/validate
+        '429':
+          description: Too Many Requests - Rate limit exceeded
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                type: https://github.com/italia/api-oas-checker-eservice/blob/main/docs/PROBLEMS.md#rate-limit-exceeded
+                title: Too Many Requests
+                status: 429
+                detail: Rate limit exceeded. Maximum 10 requests per 60s.
+                instance: /oas/validate
+          headers:
+            X-RateLimit-Limit:
+              description: Maximum number of requests allowed in the window
+              schema:
+                type: integer
+                format: int32
+            X-RateLimit-Remaining:
+              description: Number of requests remaining in the current window
+              schema:
+                type: integer
+                format: int32
+            X-RateLimit-Reset:
+              description: Seconds until the rate limit window resets
+              schema:
+                type: integer
+                format: int32
+            Retry-After:
+              description: Minimum seconds before retrying
+              schema:
+                type: integer
+                format: int32
+        '500':
+          description: Internal Server Error
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/Problem'
+              example:
+                type: https://github.com/italia/api-oas-checker-eservice/blob/main/docs/PROBLEMS.md#internal-error
+                title: Internal Server Error
+                status: 500
+                detail: 'Validation failed: unexpected error'
+                instance: /oas/report/abc123
+  /oas/rulesets:
+    get:
+      tags:
+      - Rulesets
+      summary: List available rulesets
+      description: Get list of available Spectral rulesets
+      operationId: availableRulesets
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema: {}
+  /status:
+    get:
+      tags:
+      - Status
+      summary: Service health check
+      description: Health check endpoint as per ModI guidelines. Returns application/problem+json
+        format.
+      operationId: healthStatus
+      responses:
+        '200':
+          description: Service is operational
+          content:
+            application/problem+json:
+              schema:
+                $ref: '#/components/schemas/StatusResponse'
+components:
+  schemas:
+    Body_validateOpenAPI:
+      properties:
+        file:
+          type: string
+          format: binary
+          title: File
+          description: OpenAPI file (YAML or JSON)
+        ruleset:
+          type: string
+          title: Ruleset
+          default: default
+        errors_only:
+          type: boolean
+          title: Errors Only
+          default: false
+      type: object
+      required:
+      - file
+      title: Body_validateOpenAPI
+    Problem:
+      properties:
+        type:
+          type: string
+          title: Type
+          description: URI reference that identifies the problem type
+          default: https://github.com/italia/api-oas-checker-eservice/blob/main/docs/PROBLEMS.md#internal-error
+        title:
+          type: string
+          title: Title
+          description: Short, human-readable summary of the problem
+        status:
+          type: integer
+          maximum: 599.0
+          minimum: 100.0
+          format: int32
+          title: Status
+          description: HTTP status code
+        detail:
+          type: string
+          nullable: true
+          title: Detail
+          description: Human-readable explanation specific to this occurrence
+        instance:
+          type: string
+          nullable: true
+          title: Instance
+          description: URI reference that identifies the specific occurrence
+      type: object
+      required:
+      - title
+      - status
+      title: Problem
+      description: 'RFC 9457 Problem Details for HTTP APIs
+
+        https://www.rfc-editor.org/rfc/rfc9457.html'
+      example:
+        detail: Validation abc123 not found
+        instance: /oas/report/abc123
+        status: 404
+        title: Validation Not Found
+        type: https://github.com/italia/api-oas-checker-eservice/blob/main/docs/PROBLEMS.md#validation-not-found
+    ReportResponse:
+      properties:
+        validation_id:
+          type: string
+          title: Validation Id
+          description: Validation ID (SHA256 hash of file + params)
+        status:
+          $ref: '#/components/schemas/ValidationStatus'
+        ruleset:
+          type: string
+          title: Ruleset
+          description: Ruleset used for validation
+        ruleset_version:
+          type: string
+          title: Ruleset Version
+          description: Version of ruleset used
+        errors_only:
+          type: boolean
+          title: Errors Only
+          description: Whether only errors were requested
+        file_sha256:
+          type: string
+          title: File Sha256
+          description: SHA256 hash of the validated file content
+        created_at:
+          type: string
+          format: date-time
+          title: Created At
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+          title: Completed At
+        report:
+          additionalProperties: true
+          type: object
+          nullable: true
+          title: Report
+        error:
+          type: string
+          nullable: true
+          title: Error
+      type: object
+      required:
+      - validation_id
+      - status
+      - ruleset
+      - ruleset_version
+      - errors_only
+      - file_sha256
+      - created_at
+      title: ReportResponse
+      description: Response schema for GET /oas/report/{validationId}
+    StatusResponse:
+      properties:
+        status:
+          type: integer
+          maximum: 599.0
+          minimum: 100.0
+          format: int32
+          title: Status
+          description: HTTP status code (200 = healthy)
+        title:
+          type: string
+          title: Title
+          description: Service status title
+        detail:
+          type: string
+          title: Detail
+          description: Detailed service status information
+      type: object
+      required:
+      - status
+      - title
+      - detail
+      title: StatusResponse
+      description: 'Status response for /status endpoint (ModI compliant)
+
+        Returns application/problem+json format'
+      example:
+        detail: OAS Checker e-service is running and healthy
+        status: 200
+        title: Service Operational
+    ValidationResponse:
+      properties:
+        validation_id:
+          type: string
+          title: Validation Id
+          description: Unique validation ID
+        status:
+          $ref: '#/components/schemas/ValidationStatus'
+        message:
+          type: string
+          title: Message
+          description: Human-readable message
+      type: object
+      required:
+      - validation_id
+      - status
+      - message
+      title: ValidationResponse
+      description: Response schema for POST /oas/validate
+    ValidationStatus:
+      type: string
+      enum:
+      - PENDING
+      - IN_PROGRESS
+      - COMPLETED
+      - FAILED
+      title: ValidationStatus
+      description: Status of a validation request
+tags:
+- name: Validation
+  description: Operations related to OAS validation
+- name: Rulesets
+  description: Operations related to Spectral rulesets
+- name: Status
+  description: Service status and health check

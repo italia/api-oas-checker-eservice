@@ -5,20 +5,17 @@ info:
   version: 1.0.0
   summary: Servizio di validazione OpenAPI
   x-summary: Servizio di validazione OpenAPI
-  termsOfService: https://example.com/terms
+  termsOfService: https://github.com/italia/api-oas-checker-eservice/blob/main/README.MD
   x-api-id: oas-checker-eservice
   contact:
-    name: API Support
-    email: support@example.com
+    name: Dipartimento per la Trasformazione Digitale
+    url: https://github.com/italia/api-oas-checker-eservice
   license:
-    name: CC0 1.0 Universal
-    url: https://creativecommons.org/publicdomain/zero/1.0/
+    name: EUPL 1.2
+    url: https://github.com/italia/api-oas-checker-eservice/blob/main/LICENSE
 servers:
-- url: http://localhost:8000
-  description: Local Development Server
-  x-sandbox: true
-- url: https://oaschecker.usciteromane.com
-  description: Production Server
+- url: https://uat-api-oas-checker.innovazione.gov.it/govway/rest/in/DTD/api-oas-checker/v1
+  description: Collaudo
 paths:
   /oas/validate:
     post:
@@ -47,7 +44,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
               example:
-                type: http://localhost:8000/problems/bad-request
+                type: https://github.com/italia/api-oas-checker-eservice/blob/main/docs/PROBLEMS.md#bad-request
                 title: Bad Request
                 status: 400
                 detail: File must be YAML or JSON format
@@ -59,7 +56,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
               example:
-                type: http://localhost:8000/problems/validation-error
+                type: https://github.com/italia/api-oas-checker-eservice/blob/main/docs/PROBLEMS.md#validation-error
                 title: Validation Error
                 status: 422
                 detail: 'Request validation failed: file -> field required'
@@ -92,7 +89,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
               example:
-                type: http://localhost:8000/problems/rate-limit-exceeded
+                type: https://github.com/italia/api-oas-checker-eservice/blob/main/docs/PROBLEMS.md#rate-limit-exceeded
                 title: Too Many Requests
                 status: 429
                 detail: Rate limit exceeded. Maximum 10 requests per 60s.
@@ -104,7 +101,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
               example:
-                type: http://localhost:8000/problems/internal-error
+                type: https://github.com/italia/api-oas-checker-eservice/blob/main/docs/PROBLEMS.md#internal-error
                 title: Internal Server Error
                 status: 500
                 detail: 'Validation failed: unexpected error'
@@ -137,7 +134,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
               example:
-                type: http://localhost:8000/problems/not-found
+                type: https://github.com/italia/api-oas-checker-eservice/blob/main/docs/PROBLEMS.md#not-found
                 title: Not Found
                 status: 404
                 detail: Validation abc123 not found
@@ -149,7 +146,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
               example:
-                type: http://localhost:8000/problems/validation-error
+                type: https://github.com/italia/api-oas-checker-eservice/blob/main/docs/PROBLEMS.md#validation-error
                 title: Validation Error
                 status: 422
                 detail: 'Request validation failed: file -> field required'
@@ -161,7 +158,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
               example:
-                type: http://localhost:8000/problems/rate-limit-exceeded
+                type: https://github.com/italia/api-oas-checker-eservice/blob/main/docs/PROBLEMS.md#rate-limit-exceeded
                 title: Too Many Requests
                 status: 429
                 detail: Rate limit exceeded. Maximum 10 requests per 60s.
@@ -194,7 +191,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Problem'
               example:
-                type: http://localhost:8000/problems/internal-error
+                type: https://github.com/italia/api-oas-checker-eservice/blob/main/docs/PROBLEMS.md#internal-error
                 title: Internal Server Error
                 status: 500
                 detail: 'Validation failed: unexpected error'
@@ -233,7 +230,7 @@ components:
       properties:
         file:
           type: string
-          format: binary
+          contentMediaType: application/octet-stream
           title: File
           description: OpenAPI file (YAML or JSON)
         ruleset:
@@ -254,7 +251,7 @@ components:
           type: string
           title: Type
           description: URI reference that identifies the problem type
-          default: about:blank
+          default: https://github.com/italia/api-oas-checker-eservice/blob/main/docs/PROBLEMS.md#internal-error
         title:
           type: string
           title: Title
@@ -291,7 +288,7 @@ components:
         instance: /oas/report/abc123
         status: 404
         title: Validation Not Found
-        type: https://api.example.com/problems/validation-not-found
+        type: https://github.com/italia/api-oas-checker-eservice/blob/main/docs/PROBLEMS.md#validation-not-found
     ReportResponse:
       properties:
         validation_id:

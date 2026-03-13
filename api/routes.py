@@ -6,6 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status
 from fastapi.responses import JSONResponse
 
+import config
 from api.dependencies import get_validation_service
 from api.auth import verify_jwt_token
 from api.hmac import verify_hmac_signature
@@ -24,6 +25,8 @@ router = APIRouter()
 
 # OpenAPI responses for error cases (RFC 9457 Problem Details)
 # We define them manually to ensure ONLY application/problem+json is used
+PROBLEM_BASE_URL = config.PROBLEM_BASE_URL
+
 PROBLEM_RESPONSES = {
     400: {
         "model": Problem,
@@ -32,7 +35,7 @@ PROBLEM_RESPONSES = {
             "application/problem+json": {
                 "schema": {"$ref": "#/components/schemas/Problem"},
                 "example": {
-                    "type": "https://api-oas-checker.example.com/problems/bad-request",
+                    "type": PROBLEM_BASE_URL + "bad-request",
                     "title": "Bad Request",
                     "status": 400,
                     "detail": "File must be YAML or JSON format",
@@ -48,7 +51,7 @@ PROBLEM_RESPONSES = {
             "application/problem+json": {
                 "schema": {"$ref": "#/components/schemas/Problem"},
                 "example": {
-                    "type": "https://api-oas-checker.example.com/problems/not-found",
+                    "type": PROBLEM_BASE_URL + "not-found",
                     "title": "Not Found",
                     "status": 404,
                     "detail": "Validation abc123 not found",
@@ -64,7 +67,7 @@ PROBLEM_RESPONSES = {
             "application/problem+json": {
                 "schema": {"$ref": "#/components/schemas/Problem"},
                 "example": {
-                    "type": "https://api-oas-checker.example.com/problems/validation-error",
+                    "type": PROBLEM_BASE_URL + "validation-error",
                     "title": "Validation Error",
                     "status": 422,
                     "detail": "Request validation failed: file -> field required",
@@ -80,7 +83,7 @@ PROBLEM_RESPONSES = {
             "application/problem+json": {
                 "schema": {"$ref": "#/components/schemas/Problem"},
                 "example": {
-                    "type": "https://api-oas-checker.example.com/problems/rate-limit-exceeded",
+                    "type": PROBLEM_BASE_URL + "rate-limit-exceeded",
                     "title": "Too Many Requests",
                     "status": 429,
                     "detail": "Rate limit exceeded. Maximum 10 requests per 60s.",
@@ -114,7 +117,7 @@ PROBLEM_RESPONSES = {
             "application/problem+json": {
                 "schema": {"$ref": "#/components/schemas/Problem"},
                 "example": {
-                    "type": "https://api-oas-checker.example.com/problems/internal-error",
+                    "type": PROBLEM_BASE_URL + "internal-error",
                     "title": "Internal Server Error",
                     "status": 500,
                     "detail": "Validation failed: unexpected error",
@@ -124,6 +127,7 @@ PROBLEM_RESPONSES = {
         }
     }
 }
+
 
 
 @router.post(
