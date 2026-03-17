@@ -99,6 +99,11 @@ spec:
               subPath: jwks.json
               readOnly: true
             {{- end }}
+            {{- if and .Values.govway.keys.publicKey .Values.govway.keys.privateKey }}
+            - name: govway-keys
+              mountPath: /etc/govway/keys
+              readOnly: true
+            {{- end }}
       volumes:
         - name: tmp
           emptyDir:
@@ -117,6 +122,12 @@ spec:
         - name: govway-jwks
           configMap:
             name: {{ include "oas-checker.fullname" . }}-govway-jwks
+        {{- end }}
+        {{- if and .Values.govway.keys.publicKey .Values.govway.keys.privateKey }}
+        - name: govway-keys
+          secret:
+            secretName: {{ include "oas-checker.fullname" . }}-govway-keys
+            defaultMode: 0440
         {{- end }}
       {{- with .Values.govway.nodeSelector }}
       nodeSelector:

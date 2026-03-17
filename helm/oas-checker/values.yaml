@@ -188,7 +188,7 @@ govway:
 
   image:
     repository: linkitaly/govway
-    tag: "3.4.2"
+    tag: "3.4.2.p1"
     pullPolicy: IfNotPresent
 
   service:
@@ -221,6 +221,11 @@ govway:
   # JWKS file for JWT validation (mounted at /etc/govway/jwks.json)
   jwks:
     data: ""  # JSON content of JWKS file; leave empty to skip mounting
+
+  # PEM keys for GovWay (mounted at /etc/govway/keys/)
+  keys:
+    publicKey: ""   # PEM public key; leave empty to skip mounting
+    privateKey: ""  # PEM private key; leave empty to skip mounting
 
   # Persistence for GovWay configuration (/etc/govway)
   persistence:
